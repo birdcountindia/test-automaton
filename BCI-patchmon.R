@@ -26,69 +26,132 @@ data_pmp <- left_join(data_pmp, eBird.users, "OBSERVER.ID")
 
 
 data0 <- data_pmp %>% ungroup() %>% 
-  filter(OBSERVER.ID != "obsr2607928") %>% 
-  mutate(DAYPMP = DAYY - 30,
-         WEEKPMP = WEEKSY - 5) %>% 
-  mutate(WEEKPMP = if_else(WEEKPMP > 0, WEEKPMP, 52 - WEEKPMP))
+  filter(OBSERVER.ID != "obsr2607928") %>% # PMP account
+  group_by(OBSERVER.ID, LOCALITY.ID, SAMPLING.EVENT.IDENTIFIER) %>% 
+  slice(1) %>% ungroup() %>% 
+  # basic eligible list filter
+  filter(ALL.SPECIES.REPORTED == 1, DURATION.MINUTES >= 14) %>% 
+  group_by(SAMPLING.EVENT.IDENTIFIER) %>% filter(!any(OBSERVATION.COUNT == "X")) %>% 
+  ungroup() 
+  
+data1 <- data0 %>% 
+  mutate(DAYPMP = (if_else(DAYY > 151, DAYY - 151, 365 - (151-DAYY))) - 30,
+         WEEKPMP = WEEKSY - 4) %>% 
+  mutate(DAYPMP = if_else(DAYPMP > 0, DAYPMP, 365 - DAYPMP),
+         WEEKPMP = if_else(WEEKPMP > 0, WEEKPMP, 52 - WEEKPMP))
 
-data1 <- data0 %>% group_by(OBSERVER.ID, LOCALITY.ID, SAMPLING.EVENT.IDENTIFIER) %>% 
-  slice(1) %>% ungroup() 
+data2 <- data1 %>% 
+  ungroup() %>% group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID) %>% 
+  arrange(desc(DAYPMP)) %>% 
+  summarise(FREQ = case_when(n() == 1 ~ 0,
+                             n() >= 3 & -(mean(diff(WEEKPMP[1:3]))) > 1 ~ 2,
+                             n() >= 3 & -(mean(diff(WEEKPMP[1:3]))) == 1 ~ 1,
+                             n() >= 3 & -(mean(diff(WEEKPMP[1:3]))) < 1 ~ -(mean(diff(DAYPMP[1:3])))/7,
+                             n() < 3 & -(mean(diff(WEEKPMP[1:2]))) > 1 ~ 2,
+                             n() < 3 & -(mean(diff(WEEKPMP[1:2]))) == 1 ~ 1,
+                             n() < 3 & -(mean(diff(WEEKPMP[1:2]))) < 1 ~ -(mean(diff(DAYPMP[1:2])))/7),
+            FREQ.D = case_when(n() == 1 ~ 0,
+                               n() >= 3 & -(mean(diff(WEEKPMP[1:3]))) > 1 ~ 14,
+                               n() >= 3 & -(mean(diff(WEEKPMP[1:3]))) == 1 ~ 7,
+                               n() >= 3 & -(mean(diff(WEEKPMP[1:3]))) < 1 ~ -(mean(diff(DAYPMP[1:3]))),
+                               n() < 3 & -(mean(diff(WEEKPMP[1:2]))) > 1 ~ 14,
+                               n() < 3 & -(mean(diff(WEEKPMP[1:2]))) == 1 ~ 7,
+                               n() < 3 & -(mean(diff(WEEKPMP[1:2]))) < 1 ~ -(mean(diff(DAYPMP[1:2]))))) %>% 
+  mutate(FREQ = round(FREQ,1),
+         FREQ.D = ceiling(FREQ.D)) %>% 
+  ungroup()
 
-# basic eligible list filter
-data2 <- data1 %>% filter(ALL.SPECIES.REPORTED == 1, DURATION.MINUTES >= 14) %>% 
-  group_by(SAMPLING.EVENT.IDENTIFIER) %>% filter(!any(OBSERVATION.COUNT == "X")) %>% ungroup()
 
+# observer-level leaderboard
 data_l1 <- data2 %>% group_by(OBSERVER.ID) %>% 
   summarise(FULL.NAME = min(FULL.NAME), 
             NO.LISTS = n_distinct(SAMPLING.EVENT.IDENTIFIER), 
             NO.P = n_distinct(LOCALITY.ID)) 
 
+
 # monitoring instances 
-data3 <- data2 %>% 
-  distinct(OBSERVER.ID, FULL.NAME, LOCALITY.ID, LOCALITY, OBSERVATION.DATE, DAYPMP, WEEKPMP)
+data3 <- data_l1 %>% right_join(data1) %>% 
+  left_join(data2) %>% 
+  distinct(OBSERVER.ID, FULL.NAME, FREQ, FREQ.D, NO.LISTS, NO.P,
+           LOCALITY.ID, LOCALITY, OBSERVATION.DATE, DAYPMP, WEEKPMP)
 
-data3a <- data3 %>% filter(grepl("errest", LOCALITY)) %>% mutate(P.TYPE = "T.INST")
-data3b <- data3 %>% filter(grepl("etland", LOCALITY)) %>% mutate(P.TYPE = "W.INST")
-
-data3 <- full_join(data3a, data3b)
-
-fillval <- 1:8
-
-data_l2 <- data3 %>% group_by(OBSERVER.ID, LOCALITY.ID, P.TYPE) %>% 
-  summarise(FULL.NAME = min(FULL.NAME), 
-            N.INST = n_distinct(WEEKPMP),
-            N.INST2 = N.INST) %>% 
-  pivot_wider(names_from = c(P.TYPE), values_from = N.INST, values_fill = 0) %>% 
-  mutate(TOT.INST = T.INST + W.INST) 
-
-data4 <- data2 %>% distinct(OBSERVER.ID, FULL.NAME, LOCALITY.ID, WEEKPMP) 
-
-data_l3 <- data4 %>% 
+data_l2 <- data3 %>% 
   group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID) %>% slice(1) %>% ungroup() %>% 
   group_by(OBSERVER.ID) %>% 
-  summarise(LOCALITY.ID = LOCALITY.ID, 
+  arrange(LOCALITY.ID) %>% 
+  summarise(FULL.NAME = FULL.NAME,
+            LOCALITY.ID = LOCALITY.ID, 
             PATCH.NO = seq(length(LOCALITY.ID))) %>% ungroup()
 
-data_l4 <- data_l1 %>% right_join(data_l3) %>% 
-  right_join(data_l2) %>% group_by(OBSERVER.ID, LOCALITY.ID, PATCH.NO) %>% 
-  pivot_wider(names_from = c(PATCH.NO), values_from = N.INST2, values_fill = 0)
 
-data5 <- data4 %>% group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID) %>% 
+data4 <- data3 %>% left_join(data_l2) %>% 
+  ungroup() %>% 
+  group_by(OBSERVER.ID, FULL.NAME, NO.LISTS, NO.P, LOCALITY.ID, PATCH.NO, FREQ, FREQ.D, LOCALITY) %>% 
   summarise(WEEKPMP = WEEKPMP,
-            GAP = WEEKPMP - lag(WEEKPMP, default = 0)) %>% 
-  mutate(CONT = case_when(WEEKPMP == WEEKPMP[1] ~ 1,
-                          WEEKPMP != WEEKPMP[1] & GAP <= 2 ~ 1,
-                          WEEKPMP != WEEKPMP[1] & GAP > 2 ~ 0)) %>% 
-  summarise(LOCALITY.ID = LOCALITY.ID,
-            WEEKPMP = WEEKPMP,
-            CONT = CONT,
+            DAYPMP = DAYPMP,
+            GAP = DAYPMP - lag(DAYPMP, default = 0)) %>% 
+  # is one observation part of the same monitoring instance as previous?
+  # is there any missing observation between consecutive instances?
+  mutate(SAME = case_when(DAYPMP == DAYPMP[1] ~ 0, # first observation
+                          DAYPMP != DAYPMP[1] & GAP < (FREQ.D-1) ~ 1,
+                          DAYPMP != DAYPMP[1] & GAP >= (FREQ.D-1) ~ 0),
+         CONT = case_when(DAYPMP == DAYPMP[1] ~ 1, # first observation
+                          DAYPMP != DAYPMP[1] & GAP <= (FREQ.D+1) ~ 1,
+                          DAYPMP != DAYPMP[1] & GAP > (FREQ.D+1) ~ 0)) 
+
+
+# calculating total monitoring instances based on each observer's frequency
+data_l3 <- data4 %>% ungroup() %>% 
+  filter(SAME != 1) %>% 
+  group_by(OBSERVER.ID, FULL.NAME, NO.LISTS, NO.P, LOCALITY.ID, PATCH.NO, FREQ, FREQ.D, LOCALITY) %>% 
+  summarise(NO.INST = n(),
+            NO.INST2 = NO.INST)
+
+data_l3a <- data_l3 %>% filter(grepl("errest", LOCALITY)) %>% mutate(P.TYPE = "T.INST")
+data_l3b <- data_l3 %>% filter(grepl("etland", LOCALITY)) %>% mutate(P.TYPE = "W.INST")
+
+data_l3 <- data_l3 %>% full_join(data_l3a) %>% 
+  full_join(data_l3b) %>% 
+  select(-LOCALITY) 
+
+
+
+ldb1 <- data_l3 %>% ungroup() %>% 
+  pivot_wider(names_from = c(P.TYPE), values_from = NO.INST2, values_fill = 0) %>% 
+  select(-"NA") %>% 
+  group_by(OBSERVER.ID, FULL.NAME, NO.LISTS, NO.P) %>% 
+  summarise(TOT.INST = sum(NO.INST), # total over different patches
+            T.INST = sum(T.INST),
+            W.INST = sum(W.INST))
+
+ldb1 <- data_l1 %>% left_join(ldb1) %>% ungroup() %>% arrange(desc(TOT.INST))
+
+
+# calculating current streak based on each observer's frequency
+data_l4 <- data4 %>% 
+  ungroup() %>% 
+  group_by(OBSERVER.ID, FULL.NAME, NO.LISTS, NO.P, LOCALITY.ID, PATCH.NO, FREQ, FREQ.D) %>% 
+  select(-LOCALITY) %>% 
+  summarise(FI.WEEKPMP = WEEKPMP, # final instance week
+            FI.DAYPMP = DAYPMP, # final instance day
             STREAK = runner::streak_run(CONT)) %>% 
-  left_join(data_l3) %>% 
-  arrange(desc(WEEKPMP)) %>% 
+  arrange(desc(FI.DAYPMP)) %>% 
   slice(1) %>% 
-  mutate(STREAK = case_when(WEEKPMP < 16 ~ 0, # Nov 1st week = 23rd WEEKSY
+  mutate(STREAK = case_when(FI.DAYPMP < (124 - FREQ.D) ~ 0, # Nov 1st = 124TH DAYPMP
                             TRUE ~ as.numeric(STREAK)))
 
 
+
+
+
+
+
+
+
+
+
+
+
+ldb2 <- data_l4 %>% 
 
 # new joinees
