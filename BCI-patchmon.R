@@ -51,9 +51,9 @@ data_l1 <- data1 %>% group_by(OBSERVER.ID, FULL.NAME) %>%
 
 # calculating each observer's monitoring frequencies (different for different patches)
 data2 <- data1 %>% 
-  ungroup() %>% group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID) %>% 
+  ungroup() %>% group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID, LOCALITY) %>% 
   arrange(desc(DAYPMP)) %>% 
-  distinct(OBSERVER.ID, FULL.NAME, LOCALITY.ID, DAYPMP, WEEKPMP) %>% 
+  distinct(OBSERVER.ID, FULL.NAME, LOCALITY.ID, LOCALITY, DAYPMP, WEEKPMP) %>% 
   summarise(FREQ = case_when(n() >= 3 & -(mean(diff(WEEKPMP[1:3]))) > 1 ~ 2,
                              n() >= 3 & -(mean(diff(WEEKPMP[1:3]))) == 1 ~ 1,
                              n() >= 3 & -(mean(diff(WEEKPMP[1:3]))) < 1 ~ -(mean(diff(DAYPMP[1:3])))/7,
@@ -84,6 +84,7 @@ data_l2 <- data3 %>%
   group_by(OBSERVER.ID, FULL.NAME) %>% 
   arrange(LOCALITY.ID) %>% 
   summarise(LOCALITY.ID = LOCALITY.ID, 
+            LOCALITY = LOCALITY,
             PATCH.NO = seq(length(LOCALITY.ID))) %>% ungroup()
 
 
@@ -125,8 +126,7 @@ data_l3a <- data_l3 %>% filter(grepl("errest", LOCALITY)) %>% mutate(P.TYPE = "T
 data_l3b <- data_l3 %>% filter(grepl("etland", LOCALITY)) %>% mutate(P.TYPE = "W.INST")
 data_l3c <- full_join(data_l3a, data_l3b)
 
-data_l3 <- data_l3 %>% left_join(data_l3c) %>% 
-  select(-LOCALITY) 
+data_l3 <- data_l3 %>% left_join(data_l3c)
 
 
 # observer-level leaderboard
@@ -138,7 +138,6 @@ ldb1 <- data_l3 %>% ungroup() %>%
             T.INST = sum(T.INST),
             W.INST = sum(W.INST)) %>% 
   ungroup() %>% arrange(desc(TOT.INST), FULL.NAME) %>% 
-  slice(1:10) %>% 
   rownames_to_column("Rank")
 
 
@@ -150,8 +149,8 @@ currentday <- 124 # Nov 1st = 124TH DAYPMP
 data_l4 <- data4 %>% 
   ungroup() %>% 
   left_join(data_l3) %>% 
-  select(-c(LOCALITY, P.TYPE)) %>% 
-  group_by(OBSERVER.ID, FULL.NAME, NO.LISTS, NO.P, LOCALITY.ID, PATCH.NO, FREQ, FREQ.D, NO.INST) %>% 
+  select(-P.TYPE) %>% 
+  group_by(OBSERVER.ID, FULL.NAME, NO.LISTS, NO.P, LOCALITY.ID, LOCALITY, PATCH.NO, FREQ, FREQ.D, NO.INST) %>% 
   summarise(FI.WEEKPMP = WEEKPMP, # final instance week
             FI.DAYPMP = DAYPMP, # final instance day
             FI.GAP = GAP, # final instance gap
@@ -171,17 +170,14 @@ ldb2 <- data_l4 %>% ungroup() %>%
   
 # patch-level leaderboard by number of instances
 ldb2a <- ldb2 %>% arrange(desc(NO.INST), FULL.NAME) %>% 
-  slice(1:10) %>% 
   rownames_to_column("Rank")
 
 # patch-level leaderboard by highest streak
 ldb2b <- ldb2 %>% arrange(desc(H.STREAK), FULL.NAME) %>% 
-  slice(1:10) %>% 
   rownames_to_column("Rank")
 
 # patch-level leaderboard by current streak
 ldb2c <- ldb2 %>% arrange(desc(C.STREAK), FULL.NAME) %>% 
-  slice(1:10) %>% 
   rownames_to_column("Rank")
 
 
@@ -193,7 +189,7 @@ ldb3 <- data1 %>%
   ungroup() %>% filter(DAYPMP >= 62) %>% 
   left_join(data_l2) %>% 
   left_join(data_l4) %>% 
-  group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID, PATCH.NO) %>% 
+  group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID, LOCALITY, PATCH.NO) %>% 
   summarise(J.WEEKPMP = WEEKPMP,
             J.DAYPMP = DAYPMP,
             FI.WEEKPMP = FI.WEEKPMP, 
