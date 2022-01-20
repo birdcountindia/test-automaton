@@ -3,6 +3,8 @@ library(lubridate)
 # library(runner) # for streak (install if not already)
 
 
+######### preparing data ####
+
 load("pmp_relDec-2021.RData")
 
 eBird.users <- read.delim("ebd_users_relJun-2021.txt", sep = "\t", header = T, quote = "", 
@@ -13,6 +15,7 @@ eBird.users <- eBird.users %>% transmute(OBSERVER.ID = OBSERVER.ID,
 
 # joining observer names to dataset
 data_pmp <- left_join(data_pmp, eBird.users, "OBSERVER.ID")
+
 
 data0 <- data_pmp %>% 
   ungroup() %>% 
@@ -26,7 +29,6 @@ data0 <- data_pmp %>%
   filter(!any(OBSERVATION.COUNT == "X")) %>% 
   ungroup() 
   
-
 met_week <- function(dates) {
   require(lubridate)
   normal_year <- c((0:363 %/% 7 + 1), 52)
@@ -34,7 +36,6 @@ met_week <- function(dates) {
   year_day    <- yday(dates)
   return(ifelse(leap_year(dates), leap_year[year_day], normal_year[year_day])) 
 }
-
 
 # calculating DAY and WEEK from start of PMP (WEEK.MY starts 4 weeks before WEEK.PMP)
 data1 <- data0 %>%
@@ -48,14 +49,28 @@ data1 <- data0 %>%
          WEEK.PMP = if_else(WEEK.PMP > 0, WEEK.PMP, 52 - WEEK.PMP)) %>% 
   ungroup() 
 
+# excluding non-patch-monitors having lists shared with patch-monitors
+temp1 <- data1 %>% 
+  group_by(LOCALITY.ID, GROUP.ID) %>% 
+  summarise(PATCH.OBS = n_distinct(SAMPLING.EVENT.IDENTIFIER)) # no. of observers in instance
 
-# for observer-level leaderboard
+temp2 <- data1 %>% 
+  left_join(temp1) %>% 
+  filter(PATCH.OBS == 1 | FULL.NAME == "Loukika Neve") %>% 
+  distinct(OBSERVER.ID)
+
+data1 <- data1 %>% 
+  filter(OBSERVER.ID %in% temp2$OBSERVER.ID) 
+
+
+
+######### instance-level leaderboard ####
+
 data_l1 <- data1 %>% 
   group_by(OBSERVER.ID, FULL.NAME) %>% 
   summarise(NO.LISTS = n_distinct(SAMPLING.EVENT.IDENTIFIER), 
             NO.P = n_distinct(LOCALITY.ID)) %>% 
   ungroup() 
-
 
 # calculating each observer's monitoring frequencies (different for different patches)
 data2 <- data1 %>% 
@@ -88,7 +103,6 @@ data2 <- data1 %>%
          FREQ.D = ceiling(FREQ.D)) %>% 
   ungroup()
 
-
 # looking at patch-level information
 data3 <- data_l1 %>% 
   right_join(data1) %>% 
@@ -106,7 +120,6 @@ data_l2 <- data3 %>%
             LOCALITY = LOCALITY,
             PATCH.NO = seq(length(LOCALITY.ID))) %>%
   ungroup()
-
 
 data4 <- data3 %>% 
   left_join(data_l2) %>% 
@@ -173,7 +186,7 @@ ldb1 <- data_l3 %>%
 
 
 
-# calculating current streak based on each observer's frequency
+######### streaks (based on each observer's frequency) ####
 
 currentday <- 185 # Jan 1st = 185th DAY.PMP
 
@@ -203,7 +216,6 @@ data_l4 <- data4 %>%
   ungroup()
 
 
-
 ldb2 <- data_l4 %>% 
   select(-c(LOCALITY.ID, NO.LISTS, NO.P, FI.WEEK.PMP, FI.DAY.PMP, FI.GAP, FI.SAME, FI.CONT)) 
   
@@ -224,7 +236,8 @@ ldb2c <- ldb2 %>%
 
 
 
-# leaderboard of new joinees
+######### new joinees ####
+
 ldb3 <- data1 %>% 
   group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID) %>% 
   arrange(DAY.PMP) %>% 
@@ -233,8 +246,9 @@ ldb3 <- data1 %>%
   filter(DAY.PMP >= 92) %>% # after September
   left_join(data_l2) %>% 
   left_join(data_l4) %>% 
-  group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID, LOCALITY, PATCH.NO) %>% 
-  summarise(J.WEEK.PMP = WEEK.PMP,
+  group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID, LOCALITY) %>% 
+  summarise(J.MONTH = MONTH,
+            J.WEEK.PMP = WEEK.PMP,
             J.DAY.PMP = DAY.PMP,
             FI.WEEK.PMP = FI.WEEK.PMP, 
             FI.DAY.PMP = FI.DAY.PMP) %>% 
@@ -244,7 +258,7 @@ ldb3 <- data1 %>%
 
 
 
-### ### ###
+######### exporting leaderboards ####
 
 
 write.csv(ldb1, file = "ldb_obsr.csv", row.names = F)
