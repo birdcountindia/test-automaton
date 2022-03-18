@@ -5,16 +5,16 @@ library(lubridate)
 
 ######### preparing data ####
 
-load("pmp_relDec-2021.RData")
+load("pmp_relFeb-2022.RData")
 
-eBird.users <- read.delim("ebd_users_relJun-2021.txt", sep = "\t", header = T, quote = "", 
+eBird_users <- read.delim("ebd_users_relDec-2021.txt", sep = "\t", header = T, quote = "", 
                           stringsAsFactors = F, na.strings = c(""," ",NA))
-names(eBird.users) <- c("OBSERVER.ID","FIRST.NAME","LAST.NAME")
-eBird.users <- eBird.users %>% transmute(OBSERVER.ID = OBSERVER.ID,
-                                         FULL.NAME = paste(FIRST.NAME, LAST.NAME))
+eBird_users <- eBird_users %>% 
+  transmute(OBSERVER.ID = observer_id,
+            FULL.NAME = paste(first_name, last_name, sep = " "))
 
 # joining observer names to dataset
-data_pmp <- left_join(data_pmp, eBird.users, "OBSERVER.ID")
+data_pmp <- left_join(data_pmp, eBird_users, "OBSERVER.ID")
 
 
 data0 <- data_pmp %>% 
@@ -113,7 +113,6 @@ data3 <- data_l1 %>%
 data_l2 <- data3 %>% 
   group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID) %>% 
   slice(1) %>% 
-  ungroup() %>% 
   group_by(OBSERVER.ID, FULL.NAME) %>% 
   arrange(LOCALITY.ID) %>% 
   summarise(LOCALITY.ID = LOCALITY.ID, 
@@ -126,7 +125,6 @@ data4 <- data3 %>%
   group_by(OBSERVER.ID, FULL.NAME, NO.LISTS, NO.P, LOCALITY.ID, PATCH.NO, 
            FREQ, FREQ.D, LOCALITY, DAY.PMP) %>% 
   slice(1) %>% 
-  ungroup() %>% 
   group_by(OBSERVER.ID, FULL.NAME, NO.LISTS, NO.P, LOCALITY.ID, PATCH.NO, 
            FREQ, FREQ.D, LOCALITY) %>% 
   summarise(WEEK.PMP = WEEK.PMP,
@@ -188,10 +186,9 @@ ldb1 <- data_l3 %>%
 
 ######### streaks (based on each observer's frequency) ####
 
-currentday <- 185 # Jan 1st = 185th DAY.PMP
+currentday <- 244 # Mar 1st = 244th DAY.PMP
 
 data_l4 <- data4 %>% 
-  ungroup() %>% 
   left_join(data_l3) %>% 
   select(-P.TYPE) %>% 
   group_by(OBSERVER.ID, FULL.NAME, NO.LISTS, NO.P, LOCALITY.ID, LOCALITY, PATCH.NO, 
@@ -243,7 +240,7 @@ ldb3 <- data1 %>%
   arrange(DAY.PMP) %>% 
   slice(1) %>% 
   ungroup() %>% 
-  filter(DAY.PMP >= 92) %>% # after September
+  filter(DAY.PMP >= 153) %>% # after November
   left_join(data_l2) %>% 
   left_join(data_l4) %>% 
   group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID, LOCALITY) %>% 
@@ -261,11 +258,11 @@ ldb3 <- data1 %>%
 ######### exporting leaderboards ####
 
 
-write.csv(ldb1, file = "ldb_obsr.csv", row.names = F)
+write_csv(ldb1, file = "ldb_obsr.csv")
 
-write.csv(ldb2a, file = "ldb_patch_1_inst.csv", row.names = F)
-write.csv(ldb2b, file = "ldb_patch_2_hstreak.csv", row.names = F)
-write.csv(ldb2c, file = "ldb_patch_3_cstreak.csv", row.names = F)
+write_csv(ldb2a, file = "ldb_patch_1_inst.csv")
+write_csv(ldb2b, file = "ldb_patch_2_hstreak.csv")
+write_csv(ldb2c, file = "ldb_patch_3_cstreak.csv")
 
-write.csv(ldb3, file = "ldb_newjoin.csv", row.names = F)
+write_csv(ldb3, file = "ldb_newjoin.csv")
 
