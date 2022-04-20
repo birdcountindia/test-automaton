@@ -43,10 +43,10 @@ data1 <- data0 %>%
 history <- data_history %>% 
   group_by(OBSERVER.ID) %>% 
   filter(LOCALITY.TYPE == "H") %>% 
-  distinct(LOCALITY.ID)
+  distinct(LOCALITY.TYPE, LOCALITY.ID, LOCALITY)
 # at least 2 lists from 2 hotspots visited in previous months (1 each minimum)
 data2 <- data0 %>% 
-  right_join(history) %>% 
+  inner_join(history, by = c("LOCALITY", "LOCALITY.ID", "LOCALITY.TYPE", "OBSERVER.ID")) %>% 
   group_by(OBSERVER.ID, LOCALITY.ID) %>% 
   summarise(HOT.LISTS = n_distinct(SAMPLING.EVENT.IDENTIFIER)) %>% 
   filter(HOT.LISTS >= 1) %>% 
@@ -57,9 +57,11 @@ data2 <- data0 %>%
 # at least 8 eligible lists with breeding code
 data3 <- data0 %>% 
   group_by(OBSERVER.ID) %>% 
+  # removing whitespace in breeding code character (like "F ")
+  mutate(BREEDING.CODE = str_trim(BREEDING.CODE)) %>% 
   filter(!is.na(BREEDING.CODE) & !(BREEDING.CODE %in% c("F", "H"))) %>% 
-  summarise(NO.LISTS = n_distinct(SAMPLING.EVENT.IDENTIFIER)) %>% 
-  filter(NO.LISTS >= 8)
+  summarise(BR.LISTS = n_distinct(SAMPLING.EVENT.IDENTIFIER)) %>% 
+  filter(BR.LISTS >= 8)
   
 
   
@@ -101,4 +103,4 @@ a <- a %>% filter(FULL.NAME != "MetalClicks Ajay Ashok") # removes NAs too
 set.seed(11)
 a %>% filter(OBSERVER.ID == sample(a$OBSERVER.ID, 1))
 
-# winner 
+# winner Utsav Biswas
