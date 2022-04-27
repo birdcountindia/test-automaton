@@ -100,7 +100,7 @@ write_csv(data5, "2022/MC_results_2022_03.csv", na = "")
 # random selection 
 a <- read_csv("2022/MC_results_2022_03.csv")
 a <- a %>% filter(FULL.NAME != "MetalClicks Ajay Ashok") # removes NAs too
-set.seed(11)
+set.seed(12)
 a %>% filter(OBSERVER.ID == sample(a$OBSERVER.ID, 1))
 
-# winner Utsav Biswas
+# winner
