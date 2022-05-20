@@ -5,9 +5,11 @@ load("2022/ebd_IN_relApr-2022_APR.RData")
 
 media_csv_names <- list.files(path = "2022/MC_2022_04_media/", 
                               pattern = "*.csv", full.names = T) %>%
-  lapply(media_csv_names, read_csv) %>% 
-  bind_rows() 
-
+  lapply(read.csv) %>% 
+  bind_rows() %>% 
+  distinct(ï..ML.Catalog.Number, Recordist, eBird.Checklist.ID, Number.of.Ratings)
+names(media_csv_names) <- c("ML.ID", "FULL.NAME", 
+                            "SAMPLING.EVENT.IDENTIFIER", "RATINGS")
 
 
 ###### monthly stats ###
@@ -37,27 +39,20 @@ data0 <- data_mc %>%
   ungroup()
 
 # at least 20 media with ratings
-data_m <- media_csv_names %>%
-  filter(Year = 2022, Month = 4, 
-         `Number of Ratings` >= 1) %>% 
-  group_by(OBSERVER.ID) %>% 
-  summarise(NO.MEDIA = n_distinct(`ML Catalog Number`)) %>% ungroup() %>% 
+data1 <- data_mc %>%
+  group_by(SAMPLING.EVENT.IDENTIFIER) %>% 
+  slice(1) %>% ungroup() %>% 
+  inner_join(media_csv_names, by = "SAMPLING.EVENT.IDENTIFIER") %>% 
+  filter(YEAR == 2022, MONTH == 4, 
+         RATINGS >= 1) %>% 
+  group_by(OBSERVER.ID, FULL.NAME) %>% 
+  summarise(NO.MEDIA = n_distinct(ML.ID)) %>% ungroup() %>% 
   filter(NO.MEDIA >= 20)
 
 
-data1 <- data0 %>% 
-  inner_join(data_m, by = "OBSERVER.ID")
-  
-
-
-eBird_users <- read.delim("ebd_users_relDec-2021.txt", sep = "\t", header = T, quote = "", 
-                          stringsAsFactors = F, na.strings = c(""," ",NA))
-eBird_users <- eBird_users %>% 
-  transmute(OBSERVER.ID = observer_id,
-            FULL.NAME = paste(first_name, last_name, sep = " "))
 
 # list of group accounts to be filtered
-# groupaccs <- read_csv("ebd_users_GA_relDec-2021.csv") %>% 
+groupaccs <- read_csv("ebd_users_GA_relMar-2022.csv") %>%
   mutate(CATEGORY = case_when(GA.1 == 1 ~ "GA.1", 
                               GA.2 == 1 ~ "GA.2", 
                               TRUE ~ "NG"))
@@ -68,9 +63,7 @@ filtGA <- groupaccs %>%
 
 
 
-data2 <- data1 %>% 
-  left_join(eBird_users) %>% 
-  anti_join(filtGA) 
+data2 <- data1 %>% anti_join(filtGA) 
 
 
 write_csv(data2, "2022/MC_results_2022_04.csv", na = "")
@@ -80,7 +73,7 @@ write_csv(data2, "2022/MC_results_2022_04.csv", na = "")
 # random selection 
 a <- read_csv("2022/MC_results_2022_04.csv")
 a <- a %>% filter(FULL.NAME != "MetalClicks Ajay Ashok") # removes NAs too
-set.seed(12)
+set.seed(10)
 a %>% filter(OBSERVER.ID == sample(a$OBSERVER.ID, 1))
 
-# winner
+# winner Suren Akkaraju
