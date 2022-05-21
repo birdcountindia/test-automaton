@@ -3,11 +3,27 @@ library(lubridate)
 # library(runner) # for streak (install if not already)
 
 
+###
+
+pmpstartdate <- as_date("2021-07-01") # 1st July = PMP start
+currentdate <- as_date("2022-05-01") # date under consideration for current leaderboard
+
+# for calculating streak
+currentdays <- 1 + as.numeric(currentdate - pmpstartdate)
+
+# for new joinees: day after which under consideration for new joinees
+halfdate <- pmpstartdate + months((currentdays/2) %/% 
+                                    ((365*3 + 366)/(12*4))) # average days in a month
+halfdays <- 1 + as.numeric(halfdate - pmpstartdate)
+
+###
+
+
 ######### preparing data ####
 
-load("pmp_relFeb-2022.RData")
+load("pmp_relApr-2022.RData")
 
-eBird_users <- read.delim("ebd_users_relDec-2021.txt", sep = "\t", header = T, quote = "", 
+eBird_users <- read.delim("ebd_users_relMar-2022.txt", sep = "\t", header = T, quote = "", 
                           stringsAsFactors = F, na.strings = c(""," ",NA))
 eBird_users <- eBird_users %>% 
   transmute(OBSERVER.ID = observer_id,
@@ -21,8 +37,7 @@ data0 <- data_pmp %>%
   ungroup() %>% 
   filter(OBSERVER.ID != "obsr2607928") %>% # PMP account
   group_by(OBSERVER.ID, LOCALITY.ID, SAMPLING.EVENT.IDENTIFIER) %>% 
-  slice(1) %>% 
-  ungroup() %>% 
+  slice(1) %>% ungroup() %>% 
   # basic eligible list filter
   filter(ALL.SPECIES.REPORTED == 1, DURATION.MINUTES >= 14) %>% 
   group_by(SAMPLING.EVENT.IDENTIFIER) %>% 
@@ -43,11 +58,12 @@ data1 <- data0 %>%
          WEEK.Y = met_week(OBSERVATION.DATE),
          M.YEAR = if_else(DAY.Y <= 151, YEAR-1, YEAR), # from 1st June to 31st May
          WEEK.MY = if_else(WEEK.Y > 21, WEEK.Y-21, 52-(21-WEEK.Y))) %>% 
-  mutate(DAY.PMP = (if_else(DAY.Y > 151, DAY.Y - 151, 365 - (151-DAY.Y))) - 30,
+  mutate(DAY.PMP = 1 + as.numeric(as_date(OBSERVATION.DATE) - pmpstartdate),
          WEEK.PMP = WEEK.MY - 4) %>% 
   mutate(DAY.PMP = if_else(DAY.PMP > 0, DAY.PMP, 365 - DAY.PMP),
          WEEK.PMP = if_else(WEEK.PMP > 0, WEEK.PMP, 52 - WEEK.PMP)) %>% 
   ungroup() 
+
 
 # excluding non-patch-monitors having lists shared with patch-monitors
 temp1 <- data1 %>% 
@@ -56,24 +72,34 @@ temp1 <- data1 %>%
 
 temp2 <- data1 %>% 
   left_join(temp1) %>% 
-  filter(PATCH.OBS == 1 | FULL.NAME == "Loukika Neve") %>% 
-  distinct(OBSERVER.ID)
+  filter(PATCH.OBS == 1) %>% 
+  # to remove same observer's second account
+  group_by(FULL.NAME, OBSERVER.ID) %>% 
+  summarise(N = n()) %>% 
+  arrange(desc(N)) %>% slice(1) %>% ungroup() %>% 
+  distinct(FULL.NAME, OBSERVER.ID)
 
-data1 <- data1 %>% 
-  filter(OBSERVER.ID %in% temp2$OBSERVER.ID) 
+
+data2 <- data1 %>% 
+  filter(OBSERVER.ID %in% temp2$OBSERVER.ID,
+         str_detect(LOCALITY, "PMP")) %>% 
+  # Lakshmikant/Loukika slash
+  mutate(FULL.NAME = case_when(FULL.NAME == "Lakshmikant Neve" ~ 
+                                 "Lakshmikant/Loukika Neve",
+                               TRUE ~ FULL.NAME))
 
 
 
 ######### instance-level leaderboard ####
 
-data_l1 <- data1 %>% 
+data_l1 <- data2 %>% 
   group_by(OBSERVER.ID, FULL.NAME) %>% 
   summarise(NO.LISTS = n_distinct(SAMPLING.EVENT.IDENTIFIER), 
             NO.P = n_distinct(LOCALITY.ID)) %>% 
-  ungroup() 
+  ungroup()
 
 # calculating each observer's monitoring frequencies (different for different patches)
-data2 <- data1 %>% 
+data3 <- data2 %>% 
   group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID, LOCALITY) %>% 
   arrange(desc(DAY.PMP)) %>% 
   # to slice with distinct() (some cases of multiple lists in one day and/or week)
@@ -104,13 +130,13 @@ data2 <- data1 %>%
   ungroup()
 
 # looking at patch-level information
-data3 <- data_l1 %>% 
-  right_join(data1) %>% 
-  left_join(data2) %>% 
+data4 <- data_l1 %>% 
+  right_join(data2) %>% 
+  left_join(data3) %>% 
   distinct(OBSERVER.ID, FULL.NAME, FREQ, FREQ.D, NO.LISTS, NO.P,
            LOCALITY.ID, LOCALITY, OBSERVATION.DATE, DAY.PMP, WEEK.PMP)
 
-data_l2 <- data3 %>% 
+data_l2 <- data4 %>% 
   group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID) %>% 
   slice(1) %>% 
   group_by(OBSERVER.ID, FULL.NAME) %>% 
@@ -120,7 +146,7 @@ data_l2 <- data3 %>%
             PATCH.NO = seq(length(LOCALITY.ID))) %>%
   ungroup()
 
-data4 <- data3 %>% 
+data5 <- data4 %>% 
   left_join(data_l2) %>% 
   group_by(OBSERVER.ID, FULL.NAME, NO.LISTS, NO.P, LOCALITY.ID, PATCH.NO, 
            FREQ, FREQ.D, LOCALITY, DAY.PMP) %>% 
@@ -146,18 +172,8 @@ data4 <- data3 %>%
   ungroup()
 
 
-# # calculating total monitoring instances based on each observer's frequency.
-# # when observers have shifted their monitoring frequencies mid-project, this calculation
-# # results in fewer total number of instances, because frequency is calculated based on final
-# # settled frequency and previous instances at lower frequencies get clumped into one instance.
-# data_l3 <- data4 %>% ungroup() %>% 
-#   filter(SAME != 1) %>% 
-#   group_by(OBSERVER.ID, FULL.NAME, NO.LISTS, NO.P, LOCALITY.ID, PATCH.NO, FREQ, FREQ.D, LOCALITY) %>% 
-#   summarise(NO.INST = n(),
-#             NO.INST2 = NO.INST)
-
 # calculating total monitoring instances based on distinct days of observation.
-data_l3 <-  data4 %>% 
+data_l3 <-  data5 %>% 
   group_by(OBSERVER.ID, FULL.NAME, NO.LISTS, NO.P, LOCALITY.ID, PATCH.NO, FREQ, FREQ.D, LOCALITY) %>%
   summarise(NO.INST = n_distinct(DAY.PMP), # or n()
             NO.INST2 = NO.INST) %>% 
@@ -186,9 +202,7 @@ ldb1 <- data_l3 %>%
 
 ######### streaks (based on each observer's frequency) ####
 
-currentday <- 244 # Mar 1st = 244th DAY.PMP
-
-data_l4 <- data4 %>% 
+data_l4 <- data5 %>% 
   left_join(data_l3) %>% 
   select(-P.TYPE) %>% 
   group_by(OBSERVER.ID, FULL.NAME, NO.LISTS, NO.P, LOCALITY.ID, LOCALITY, PATCH.NO, 
@@ -204,10 +218,10 @@ data_l4 <- data4 %>%
   arrange(desc(FI.DAY.PMP)) %>% 
   slice(1) %>% 
   mutate(C.STREAK = case_when(
-    FREQ < 1 & (currentday - FI.DAY.PMP) > (FREQ.D+1) ~ 0,
-    FREQ >= 1 & (ceiling(currentday/7) - FI.WEEK.PMP) >= (FREQ+1) ~ 0,
-    FREQ < 1 & (currentday - FI.DAY.PMP) <= (FREQ.D+1) ~ as.numeric(STREAK),
-    FREQ >= 1 & (ceiling(currentday/7) - FI.WEEK.PMP) < (FREQ+1) ~ as.numeric(STREAK)
+    FREQ < 1 & (currentdays - FI.DAY.PMP) > (FREQ.D+1) ~ 0,
+    FREQ >= 1 & (ceiling(currentdays/7) - FI.WEEK.PMP) >= (FREQ+1) ~ 0,
+    FREQ < 1 & (currentdays - FI.DAY.PMP) <= (FREQ.D+1) ~ as.numeric(STREAK),
+    FREQ >= 1 & (ceiling(currentdays/7) - FI.WEEK.PMP) < (FREQ+1) ~ as.numeric(STREAK)
     ),
     STREAK = NULL) %>% 
   ungroup()
@@ -235,12 +249,11 @@ ldb2c <- ldb2 %>%
 
 ######### new joinees ####
 
-ldb3 <- data1 %>% 
+ldb3 <- data2 %>% 
   group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID) %>% 
   arrange(DAY.PMP) %>% 
-  slice(1) %>% 
-  ungroup() %>% 
-  filter(DAY.PMP >= 153) %>% # after November
+  slice(1) %>% ungroup() %>% 
+  filter(DAY.PMP >= halfdays) %>% 
   left_join(data_l2) %>% 
   left_join(data_l4) %>% 
   group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID, LOCALITY) %>% 
