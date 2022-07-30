@@ -1,35 +1,48 @@
+### BCI-patchmon repo needs to be at the same level as ebird-datasets 
+### for (relative) file paths to work!
+
 library(tidyverse)
 library(lubridate)
+library(glue)
 # library(runner) # for streak (install if not already)
 
 
-###
+### parameters ###
 
+
+# update when latest available
+userspath <- "../ebird-datasets/EBD/ebd_users_relMay-2022.txt" 
+
+
+rel_year <- (today() - months(1)) %>% year()
+rel_month_num <- (today() - months(1)) %>% month()
+rel_month_lab <- (today() - months(1)) %>% month(label = T, abbr = T) 
+
+cur_date <- today() %>% floor_date(unit = "month") # date under consideration for current leaderboard
 pmpstartdate <- as_date("2021-07-01") # 1st July = PMP start
-currentdate <- as_date("2022-05-01") # date under consideration for current leaderboard
 
 # for calculating streak
-currentdays <- 1 + as.numeric(currentdate - pmpstartdate)
-
+currentdays <- 1 + as.numeric(cur_date - pmpstartdate)
 # for new joinees: day after which under consideration for new joinees
 halfdate <- pmpstartdate + months((currentdays/2) %/% 
                                     ((365*3 + 366)/(12*4))) # average days in a month
 halfdays <- 1 + as.numeric(halfdate - pmpstartdate)
 
-###
+
+pmpdatapath <- glue("../ebird-datasets/EBD/pmp_rel{rel_month_lab}-{rel_year}.RData")
+
+###   ###
 
 
 ######### preparing data ####
 
-load("pmp_relApr-2022.RData")
-
-eBird_users <- read.delim("ebd_users_relMar-2022.txt", sep = "\t", header = T, quote = "", 
-                          stringsAsFactors = F, na.strings = c(""," ",NA))
-eBird_users <- eBird_users %>% 
+eBird_users <- read.delim(userspath, sep = "\t", header = T, quote = "", 
+                          stringsAsFactors = F, na.strings = c(""," ",NA)) %>% 
   transmute(OBSERVER.ID = observer_id,
             FULL.NAME = paste(first_name, last_name, sep = " "))
 
 # joining observer names to dataset
+load(pmpdatapath)
 data_pmp <- left_join(data_pmp, eBird_users, "OBSERVER.ID")
 
 
@@ -59,22 +72,24 @@ data1 <- data0 %>%
          M.YEAR = if_else(DAY.Y <= 151, YEAR-1, YEAR), # from 1st June to 31st May
          WEEK.MY = if_else(WEEK.Y > 21, WEEK.Y-21, 52-(21-WEEK.Y))) %>% 
   mutate(DAY.PMP = 1 + as.numeric(as_date(OBSERVATION.DATE) - pmpstartdate),
-         WEEK.PMP = WEEK.MY - 4) %>% 
-  mutate(DAY.PMP = if_else(DAY.PMP > 0, DAY.PMP, 365 - DAY.PMP),
-         WEEK.PMP = if_else(WEEK.PMP > 0, WEEK.PMP, 52 - WEEK.PMP)) %>% 
+         WEEK.PMP = ceiling(DAY.PMP/7)) %>% 
   ungroup() 
 
 
 # excluding non-patch-monitors having lists shared with patch-monitors
 temp1 <- data1 %>% 
   group_by(LOCALITY.ID, GROUP.ID) %>% 
-  summarise(PATCH.OBS = n_distinct(SAMPLING.EVENT.IDENTIFIER)) # no. of observers in instance
+  # no. of observers in instance
+  summarise(PATCH.OBS = n_distinct(SAMPLING.EVENT.IDENTIFIER)) 
 
+# selecting users with at least one solo PMP checklist to filter out non-monitors that 
+# only have shared lists with monitors
 temp2 <- data1 %>% 
   left_join(temp1) %>% 
   filter(PATCH.OBS == 1) %>% 
   # to remove same observer's second account
   group_by(FULL.NAME, OBSERVER.ID) %>% 
+  # choosing account with most observations (assumed to be primary)
   summarise(N = n()) %>% 
   arrange(desc(N)) %>% slice(1) %>% ungroup() %>% 
   distinct(FULL.NAME, OBSERVER.ID)
@@ -98,36 +113,25 @@ data_l1 <- data2 %>%
             NO.P = n_distinct(LOCALITY.ID)) %>% 
   ungroup()
 
-# calculating each observer's monitoring frequencies (different for different patches)
+
 data3 <- data2 %>% 
   group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID, LOCALITY) %>% 
   arrange(desc(DAY.PMP)) %>% 
   # to slice with distinct() (some cases of multiple lists in one day and/or week)
   distinct(OBSERVER.ID, FULL.NAME, LOCALITY.ID, LOCALITY, DAY.PMP, WEEK.PMP) %>% 
-  # taking last few instances' frequency
-  summarise(FREQ = case_when(n() >= 4 & -(mean(diff(WEEK.PMP[1:4]))) > 1 ~ 2,
-                             n() >= 4 & -(mean(diff(WEEK.PMP[1:4]))) == 1 ~ 1,
-                             n() >= 4 & -(mean(diff(WEEK.PMP[1:4]))) < 1 ~ -(mean(diff(DAY.PMP[1:4])))/7,
-                             n() == 3 & -(mean(diff(WEEK.PMP[1:3]))) > 1 ~ 2,
-                             n() == 3 & -(mean(diff(WEEK.PMP[1:3]))) == 1 ~ 1,
-                             n() == 3 & -(mean(diff(WEEK.PMP[1:3]))) < 1 ~ -(mean(diff(DAY.PMP[1:3])))/7,
-                             n() < 3 & -(mean(diff(WEEK.PMP[1:2]))) > 1 ~ 2,
-                             n() < 3 & -(mean(diff(WEEK.PMP[1:2]))) == 1 ~ 1,
-                             n() < 3 & -(mean(diff(WEEK.PMP[1:2]))) < 1 ~ -(mean(diff(DAY.PMP[1:2])))/7,
-                             n() == 1 ~ 0),
-            FREQ.D = case_when(n() >= 4 & -(mean(diff(WEEK.PMP[1:4]))) > 1 ~ 14,
-                               n() >= 4 & -(mean(diff(WEEK.PMP[1:4]))) == 1 ~ 7,
-                               n() >= 4 & -(mean(diff(WEEK.PMP[1:4]))) < 1 ~ -(mean(diff(DAY.PMP[1:4]))),
-                               n() == 3 & -(mean(diff(WEEK.PMP[1:3]))) > 1 ~ 14,
-                               n() == 3 & -(mean(diff(WEEK.PMP[1:3]))) == 1 ~ 7,
-                               n() == 3 & -(mean(diff(WEEK.PMP[1:3]))) < 1 ~ -(mean(diff(DAY.PMP[1:3]))),
-                               n() < 3 & -(mean(diff(WEEK.PMP[1:2]))) > 1 ~ 14,
-                               n() < 3 & -(mean(diff(WEEK.PMP[1:2]))) == 1 ~ 7,
-                               n() < 3 & -(mean(diff(WEEK.PMP[1:2]))) < 1 ~ -(mean(diff(DAY.PMP[1:2]))),
-                               n() == 1 ~ 0)) %>% 
-  mutate(FREQ = round(FREQ, 1),
-         FREQ.D = ceiling(FREQ.D)) %>% 
+  arrange(desc(DAY.PMP), desc(WEEK.PMP)) %>% 
+  summarise(DAY.PMP = DAY.PMP,
+            WEEK.PMP = WEEK.PMP,
+            GAP.D = DAY.PMP - lead(DAY.PMP, default = NA),
+            GAP = floor(GAP.D/7)) %>% 
+  filter(!is.na(GAP.D), GAP < 3) %>% 
+  group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID, LOCALITY) %>% 
+  summarise(FREQ.D = round(mean(GAP.D)),
+            FREQ = case_when(FREQ.D >= 7 ~ round(FREQ.D/7),
+                             TRUE ~ round(FREQ.D/7, 1))) %>% 
   ungroup()
+
+
 
 # looking at patch-level information
 data4 <- data_l1 %>% 
@@ -155,8 +159,8 @@ data5 <- data4 %>%
            FREQ, FREQ.D, LOCALITY) %>% 
   summarise(WEEK.PMP = WEEK.PMP,
             DAY.PMP = DAY.PMP,
-            GAP.D = DAY.PMP - lag(DAY.PMP, default = 0),
-            GAP = round(GAP.D/7, 1)) %>% 
+            GAP.D = DAY.PMP - lag(DAY.PMP, default = NA),
+            GAP = floor(GAP.D/7)) %>% 
   # is one observation part of the same monitoring instance as previous?
   # is there any missing observation between consecutive instances?
   mutate(SAME = case_when(DAY.PMP == DAY.PMP[1] ~ 0, # first observation
@@ -197,7 +201,6 @@ ldb1 <- data_l3 %>%
   ungroup() %>% 
   arrange(desc(TOT.INST), FULL.NAME) %>% 
   rownames_to_column("Rank")
-
 
 
 ######### streaks (based on each observer's frequency) ####
