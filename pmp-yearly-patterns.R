@@ -44,6 +44,16 @@ eBird_users <- read.delim(userspath, sep = "\t", header = T, quote = "",
             FULL.NAME = paste(first_name, last_name, sep = " "))
 data_pmp <- left_join(data_pmp, eBird_users, "OBSERVER.ID")
 
+data_pmp <- data_pmp %>% 
+  ungroup() %>% 
+  filter(OBSERVER.ID != "obsr2607928") %>% # PMP account
+  # basic eligible list filter
+  filter(ALL.SPECIES.REPORTED == 1, DURATION.MINUTES >= 14) %>% 
+  group_by(SAMPLING.EVENT.IDENTIFIER) %>% 
+  filter(!any(OBSERVATION.COUNT == "X")) %>% 
+  mutate(OBSERVATION.COUNT = as.numeric(OBSERVATION.COUNT)) %>% 
+  ungroup() 
+
 # season information
 data_pmp <- data_pmp %>% 
   mutate(SEASON = case_when(MONTH %in% 3:5 ~ "Spring",
@@ -88,6 +98,7 @@ filt_loc <- data_pmp %>%
   # at least 2 seasons
   filter(N.SEASONS >= 2) %>% 
   distinct(OBSERVER.ID, LOCALITY.ID)
+
 
 ##### map of PMP observations ####
 
@@ -225,9 +236,9 @@ plot_temp <- ggplot(data_temp,
   stat_summary(geom = "point", fun = "median",
                size = 5, col = "#1D6F72") + 
   stat_summary(geom = "linerange", fun.data = median_IQR, 
-               size = 3, col = "#1D6F72", alpha = 0.6) +
+               size = 3, col = "#1D6F72", alpha = 0.5) +
   stat_summary(geom = "linerange", fun.data = range, 
-               size = 3, col = "#1D6F72", alpha = 0.3) +
+               size = 3, col = "#1D6F72", alpha = 0.25) +
   # data points
   geom_point(size = 3, alpha = 0.05, position = position_jitter(width = 0.1)) +
   scale_x_continuous(labels = unique(data_temp$SEASON)) +
@@ -255,5 +266,79 @@ plot_temp <- ggplot(data_temp,
 
 ggsave("temp.png", plot_temp, dpi = 300,
        width = 6, height = 3*n_loc, units = "in")
+
+
+##### change in flock sizes ####
+
+flock_spec <- c("Common Myna", "Red-vented Bulbul", 
+                "Rose-ringed Parakeet", "Black Drongo")
+
+data3 <- data_pmp %>% 
+  right_join(filt_loc) %>% 
+  filter(COMMON.NAME %in% flock_spec) %>% 
+  # no need to complete per list because only interested in flock when present
+  distinct(OBSERVER.ID, FULL.NAME, LOCALITY, LOCALITY.ID, 
+           SEASON, SAMPLING.EVENT.IDENTIFIER, COMMON.NAME, OBSERVATION.COUNT) %>% 
+  arrange(FULL.NAME, LOCALITY, COMMON.NAME)
+
+obs_temp <- unique(data3$OBSERVER.ID)[10]
+data_temp <- filter(data3, OBSERVER.ID == obs_temp)
+
+n_loc <- n_distinct(data_temp$LOCALITY)
+
+
+median_IQR <- function(x) {
+  data.frame(y = median(x), # Median
+             ymin = quantile(x)[2], # 1st quartile
+             ymax = quantile(x)[4])  # 3rd quartile
+}
+
+# Function for min, max values
+range <- function(x) {
+  data.frame(ymin = min(x),
+             ymax = max(x))
+}
+
+plot_temp <- ggplot(data_temp, 
+                    aes(as.numeric(SEASON), OBSERVATION.COUNT, 
+                        colour = COMMON.NAME, group = COMMON.NAME)) +
+  facet_wrap(~ LOCALITY, ncol = 1, scales = "free") +
+  # main points
+  stat_summary(geom = "point", fun = "median",
+               size = 5, position = position_dodge(width = 0.3)) + 
+  stat_summary(geom = "linerange", fun.data = median_IQR, 
+               size = 3, alpha = 0.6, position = position_dodge(width = 0.3)) +
+  stat_summary(geom = "linerange", fun.data = range, 
+               size = 3, alpha = 0.3, position = position_dodge(width = 0.3)) +
+  # data points
+  geom_point(size = 3, alpha = 0.1, 
+             position = position_jitter(width = 0.1)) +
+  scale_color_manual(values = cbbPalette, name = "Bird species") +
+  scale_x_continuous(labels = unique(data_temp$SEASON)) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+  labs(title = glue("{data_temp$FULL.NAME}'s patches"),
+       subtitle = glue("\n \n{data_annotation} \n \n"),
+       x = "Season", y = "Count or flock size") +
+  theme(axis.line = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank(),
+        panel.grid.major.y = element_line(linetype = 3, colour = "#C2C2C2"),
+        plot.title = element_text(hjust = -0.1, size = 16),
+        plot.subtitle = element_text(hjust = -0.09, size = 8, 
+                                     colour = "#ADADAD", face = "italic"),
+        strip.text = element_text(size = 10),
+        strip.background = element_rect(fill = "#D6D6D6", colour = NA),
+        plot.background = element_rect(fill = "#EAEAEB", colour = NA),
+        panel.background = element_rect(fill = "#EAEAEB", colour = NA),
+        legend.background = element_blank(),
+        legend.text = element_text(size = 7),
+        # no fill around legend points
+        legend.key = element_blank(), 
+        panel.spacing = unit(2, "lines"),
+        plot.margin = unit(c(1, 0.5, 1, 0.5), "lines"))
+
+
+ggsave("temp.png", plot_temp, dpi = 300,
+       width = 8, height = 4*n_loc, units = "in")
 
 
