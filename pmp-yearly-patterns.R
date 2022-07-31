@@ -10,9 +10,14 @@ library(glue)
 # update when latest available
 userspath <- "../ebird-datasets/EBD/ebd_users_relMay-2022.txt" 
 
-rel_year <- (today() - months(1)) %>% year()
-rel_month_num <- (today() - months(1)) %>% month()
-rel_month_lab <- (today() - months(1)) %>% month(label = T, abbr = T) 
+# to make code robust against day = 31 (in which case the other lines produce NA)
+rel <- if (today() %>% day() == 31) {
+  (today() - days(1)) - months(1)
+} else {today() - months(1)}
+
+rel_year <- rel %>% year()
+rel_month_num <- rel %>% month()
+rel_month_lab <- rel %>% month(label = T, abbr = T) 
 
 cur_date <- today() %>% floor_date(unit = "month") # date under consideration for current leaderboard
 pmpstartdate <- as_date("2021-07-01") # 1st July = PMP start
