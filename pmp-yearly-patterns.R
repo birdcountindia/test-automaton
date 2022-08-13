@@ -249,7 +249,7 @@ for (obs in 1:n_distinct(data1$OBSERVER.ID)) {
     
     
     # setting up dimensions and header for the figure
-    gen_fig_setup(data_temp2, spec_level = T)
+    gen_fig_setup(data_temp2, metric = 1)
 
         
     plot_temp <- (header) / 
@@ -325,7 +325,7 @@ for (obs in 1:n_distinct(data2$OBSERVER.ID)) {
   file_temp <- glue("{rel_year}.png")
   
   # setting up dimensions and header for the figure
-  gen_fig_setup(data_temp1, spec_level = F)
+  gen_fig_setup(data_temp1, metric = 2)
   
   
   plot_temp <- (header) / 
@@ -378,71 +378,85 @@ flock_spec <- c("Common Myna", "Red-vented Bulbul",
                 "Rose-ringed Parakeet", "Black Drongo")
 
 data3 <- data_pmp %>% 
-  right_join(filt_loc) %>% 
+  right_join(filt_specloc) %>% 
   filter(COMMON.NAME %in% flock_spec) %>% 
   # no need to complete per list because only interested in flock when present
   distinct(OBSERVER.ID, FULL.NAME, LOCALITY, LOCALITY.ID, 
            SEASON, SAMPLING.EVENT.IDENTIFIER, COMMON.NAME, OBSERVATION.COUNT) %>% 
-  arrange(FULL.NAME, LOCALITY, COMMON.NAME)
+  arrange(FULL.NAME, LOCALITY, COMMON.NAME) %>% 
+  group_by(OBSERVER.ID, FULL.NAME, LOCALITY, LOCALITY.ID, SEASON, COMMON.NAME) %>% 
+  summarise(COUNT = boot_conf(OBSERVATION.COUNT)) %>% 
+  group_by(OBSERVER.ID, FULL.NAME, LOCALITY, LOCALITY.ID, SEASON, COMMON.NAME) %>% 
+  summarise(SE = sd(COUNT),
+            COUNT = mean(COUNT),
+            CI.L = COUNT - 1.96*SE,
+            CI.U = COUNT + 1.96*SE) %>% 
+  ungroup()
 
-obs_temp <- unique(data3$OBSERVER.ID)[1]
-data_temp <- filter(data3, OBSERVER.ID == obs_temp)
-
-n_loc <- n_distinct(data_temp$LOCALITY)
 
 
-median_IQR <- function(x) {
-  data.frame(y = median(x), # Median
-             ymin = quantile(x)[2], # 1st quartile
-             ymax = quantile(x)[4])  # 3rd quartile
+for (obs in 1:n_distinct(data3$OBSERVER.ID)) {
+  
+  obs_temp <- unique(data3$OBSERVER.ID)[obs]
+  obsname_temp <- data3 %>% distinct(OBSERVER.ID, FULL.NAME) %>% 
+    filter(OBSERVER.ID %in% obs_temp) %>% distinct(FULL.NAME) %>% as.character()
+  data_temp1 <- filter(data3, OBSERVER.ID == obs_temp)
+  
+  for (spec in 1:n_distinct(data_temp1$COMMON.NAME)) {
+    
+    print(glue("Loop progress: observer {obs}, species {spec}"))
+    
+    spec_temp <- unique(data_temp1$COMMON.NAME)[spec]
+    data_temp2 <- filter(data_temp1, COMMON.NAME == spec_temp)
+    
+    path_temp <- glue("pmp-yearly-patterns/{obsname_temp}/Species counts/")
+    file_temp <- glue("{rel_year}.png")
+    
+    # setting up dimensions and header for the figure
+    gen_fig_setup(data_temp2, metric = 3)
+    
+    
+    plot_temp <- (header) / 
+      (ggplot(data_temp2, 
+              aes(as.numeric(SEASON), COUNT, 
+                  colour = COMMON.NAME, group = COMMON.NAME)) +
+         facet_wrap(~ LOCALITY, ncol = 1, scales = "free") +
+         geom_ribbon(aes(ymin = CI.L, ymax = CI.U),
+                     colour = NA, fill = "#ADADAD", alpha = 0.2) +
+         geom_point(size = 3, colour = "black") +
+         geom_line(size = 1, colour = "black") +
+         scale_x_continuous(labels = unique(data_temp2$SEASON), 
+                            breaks = unique(as.numeric(data_temp2$SEASON)),
+                            limits = c(1, 4)) +
+         # scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+         labs( x = "Season", y = "Count or flock size") +
+         theme(axis.line = element_blank(),
+               axis.ticks = element_blank(),
+               axis.text = element_text(size = 8),
+               axis.title = element_text(size = 10),
+               panel.grid = element_blank(),
+               panel.grid.major.y = element_line(linetype = 3, colour = "#C2C2C2"),
+               strip.text = element_text(size = 10),
+               strip.background = element_rect(fill = "#D6D6D6", colour = NA),
+               plot.background = element_rect(fill = "#EAEAEB", colour = NA),
+               panel.background = element_rect(fill = "#EAEAEB", colour = NA),
+               # legend.background = element_blank(),
+               # legend.text = element_text(size = 7),
+               # # no fill around legend points
+               # legend.key = element_blank(), 
+               panel.spacing = unit(2, "lines"),
+               plot.margin = unit(c(1, 0.5, 1, 0.5), "lines"))) +
+      plot_layout(heights = c(patch_a, patch_b)) &
+      theme(plot.background = element_rect(fill = "#EAEAEB", colour = NA),
+            panel.background = element_rect(fill = "#EAEAEB", colour = NA))
+
+    if (!dir.exists(path_temp)) (dir.create(path_temp, recursive = T))
+    
+    ggsave(filename = glue("{path_temp}{file_temp}"), 
+           plot = plot_temp, 
+           dpi = 300, width = 6, height = fig_inches, units = "in")
+  
+  }
+  
 }
-
-# Function for min, max values
-range <- function(x) {
-  data.frame(ymin = min(x),
-             ymax = max(x))
-}
-
-plot_temp <- ggplot(data_temp, 
-                    aes(as.numeric(SEASON), OBSERVATION.COUNT, 
-                        colour = COMMON.NAME, group = COMMON.NAME)) +
-  facet_wrap(~ LOCALITY, ncol = 1, scales = "free") +
-  # main points
-  stat_summary(geom = "point", fun = "median",
-               size = 5, position = position_dodge(width = 0.3)) + 
-  stat_summary(geom = "linerange", fun.data = median_IQR, 
-               size = 3, alpha = 0.6, position = position_dodge(width = 0.3)) +
-  stat_summary(geom = "linerange", fun.data = range, 
-               size = 3, alpha = 0.3, position = position_dodge(width = 0.3)) +
-  # data points
-  geom_point(size = 3, alpha = 0.1, 
-             position = position_jitter(width = 0.1)) +
-  scale_color_manual(values = cbbPalette, name = "Bird species") +
-  scale_x_continuous(labels = unique(data_temp$SEASON), breaks = 1:4, limits = c(1,4)) +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
-  labs(title = glue("{data_temp$FULL.NAME}'s patches"),
-       subtitle = glue("\n \n{data_annotation} \n \n"),
-       x = "Season", y = "Count or flock size") +
-  theme(axis.line = element_blank(),
-        axis.ticks = element_blank(),
-        panel.grid = element_blank(),
-        panel.grid.major.y = element_line(linetype = 3, colour = "#C2C2C2"),
-        plot.title = element_text(hjust = -0.1, size = 16),
-        plot.subtitle = element_text(hjust = -0.09, size = 8, 
-                                     colour = "#ADADAD", face = "italic"),
-        strip.text = element_text(size = 10),
-        strip.background = element_rect(fill = "#D6D6D6", colour = NA),
-        plot.background = element_rect(fill = "#EAEAEB", colour = NA),
-        panel.background = element_rect(fill = "#EAEAEB", colour = NA),
-        legend.background = element_blank(),
-        legend.text = element_text(size = 7),
-        # no fill around legend points
-        legend.key = element_blank(), 
-        panel.spacing = unit(2, "lines"),
-        plot.margin = unit(c(1, 0.5, 1, 0.5), "lines"))
-
-
-ggsave("temp4.png", plot_temp, dpi = 300,
-       width = 8, height = 4*n_loc, units = "in")
-
 

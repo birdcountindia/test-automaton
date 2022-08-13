@@ -22,28 +22,53 @@ boot_conf = function(x, fn = mean, B = 1000) {
 
 ##### Setting up dimensions and title+logos header for trends figures ####
 
-gen_fig_setup <- function(data, spec_level = T) {
+gen_fig_setup <- function(data, metric) {
+  
+  # metric any integer from 1 to 3
+  metric_name <- case_when(metric == 1 ~ "reporting frequency",
+                           metric == 2 ~ "species richness",
+                           metric == 3 ~ "total bird counts")
   
   n_loc <- n_distinct(data$LOCALITY) # this will be basis for dimensions
   
-  scale_y <- 0.6 # y-axis scale of header (0.4 to 1)
+  scale_y <- 0.45 # y-axis scale of header (0.55 to 1)
   logo_inches <- 1.2/(612/189) # height should be (fixed width in inches / asp.ratio)
   
-  patch_a_inches <- 0.8 # after trial and error (header height in inches)
+  patch_a_inches <- 1.1 # after trial and error (header height in inches)
   fig_inches <- patch_a_inches + 3*n_loc # non-header height should vary according to n_loc
   
   patch_a <- patch_a_inches/fig_inches
   patch_b <- 1 - patch_a
   
-  correction <- 0.1/n_loc # correcting for margin between patches when calculating logo height
+  correction <- 0.15/n_loc # correcting for margin between patches when calculating logo height
   
   logo_height <- (scale_y + correction) * logo_inches/patch_a_inches
+  
+  # so that the scale correction applies to text also
+  text1_height <- logo_height*0.65 # it is 0.65*logo height
+  text2_height <- logo_height*0.65*0.8 # it is 0.8*text1
+  text3_height <- logo_height*0.65*0.5 # it is 0.5*text1
+  text4_height <- logo_height*0.65*0.5 # it is 0.5*text1
+  
+  text1_ymax <- 1.05
+  text1_ymin <- text1_ymax - text1_height
+  text2_ymax <- text1_ymin - text2_height/2
+  text2_ymin <- text2_ymax - text2_height
+  text3_ymax <- text2_ymin - text3_height/2
+  text3_ymin <- text3_ymax - text3_height
+  text4_ymax <- text3_ymin - text4_height/2
+  text4_ymin <- text4_ymax - text4_height
+  
+  data_caption <- case_when(
+    metric %in% 2:3 ~ glue("Points represent average values of {metric_name}; shaded regions are 95% confidence intervals."),
+    metric == 1 ~ glue("Points represent {metric_name}.")
+    )
   
   
   ### creating header
   
   # only when species information is required in header
-  if (spec_level == T) {
+  if (metric %in% c(1, 3)) {
     
   header <- ggplot(mapping = aes(0:1, 0:1)) +
     scale_x_continuous(limits = c(0, 1)) +
@@ -54,21 +79,29 @@ gen_fig_setup <- function(data, spec_level = T) {
                                gp = gpar(fontsize = 16), 
                                just = c("left", "bottom")),
                       xmax = -0.2, 
-                      ymin = 0.9, ymax = 1.05) +
+                      ymax = text1_ymax, ymin = text1_ymin) +
     annotation_custom(textGrob(label = glue("Species: {spec_temp}"), 
                                just = c("left", "bottom"),
-                               vjust = 1,
+                               # vjust = 0.5,
                                gp = gpar(fontsize = 12)),
                       xmax = -0.2,
-                      ymin = 0.8, ymax = 0.9) +
+                      ymax = text2_ymax, ymin = text2_ymin) +
     annotation_custom(textGrob(label = glue("{data_annotation}"), 
                                just = c("left", "bottom"), 
-                               vjust = 3, 
+                               # vjust = 1, 
                                gp = gpar(col = "#ADADAD", 
                                          cex = 1.0, fontsize = 6,
                                          fontface = "italic")),
                       xmax = -0.2, 
-                      ymin = 0.65, ymax = 0.75) +
+                      ymax = text3_ymax, ymin = text3_ymin) +
+    annotation_custom(textGrob(label = glue("{data_caption}"), 
+                               just = c("left", "bottom"), 
+                               # vjust = 1, 
+                               gp = gpar(col = "#ADADAD", 
+                                         cex = 1.0, fontsize = 6,
+                                         fontface = "italic")),
+                      xmax = -0.2, 
+                      ymax = text4_ymax, ymin = text4_ymin) +
     annotation_raster(logo1, 
                       xmin = 0.72, xmax = 0.92,
                       ymax = 1.1, ymin = 1.1 - logo_height) +
@@ -85,8 +118,6 @@ gen_fig_setup <- function(data, spec_level = T) {
   
   } else {
     
-    data_caption <- "Points represent average values and shaded regions are 95% confidence intervals."
-    
     header <- ggplot(mapping = aes(0:1, 0:1)) +
       scale_x_continuous(limits = c(0, 1)) +
       scale_y_continuous(limits = c(1 - scale_y, 1)) +
@@ -96,23 +127,29 @@ gen_fig_setup <- function(data, spec_level = T) {
                                  gp = gpar(fontsize = 16), 
                                  just = c("left", "bottom")),
                         xmax = -0.2, 
-                        ymin = 0.85, ymax = 1) +
+                        ymax = text1_ymax, ymin = text1_ymin) +
+      annotation_custom(textGrob(label = glue("Species richness"), 
+                                 just = c("left", "bottom"),
+                                 # vjust = 0.5,
+                                 gp = gpar(fontsize = 12)),
+                        xmax = -0.2,
+                        ymax = text2_ymax, ymin = text2_ymin) +
       annotation_custom(textGrob(label = glue("{data_annotation}"), 
                                  just = c("left", "bottom"), 
-                                 vjust = 1, 
+                                 # vjust = 1, 
                                  gp = gpar(col = "#ADADAD", 
                                            cex = 1.0, fontsize = 6,
                                            fontface = "italic")),
                         xmax = -0.2, 
-                        ymin = 0.75, ymax = 0.85) +
+                        ymax = text3_ymax, ymin = text3_ymin) +
       annotation_custom(textGrob(label = glue("{data_caption}"), 
                                  just = c("left", "bottom"), 
-                                 vjust = 2, 
+                                 # vjust = 1, 
                                  gp = gpar(col = "#ADADAD", 
                                            cex = 1.0, fontsize = 6,
                                            fontface = "italic")),
                         xmax = -0.2, 
-                        ymin = 0.65, ymax = 0.75) +
+                        ymax = text4_ymax, ymin = text4_ymin) +
       annotation_raster(logo1, 
                         xmin = 0.72, xmax = 0.92,
                         ymax = 1.1, ymin = 1.1 - logo_height) +
