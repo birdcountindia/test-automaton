@@ -1,12 +1,16 @@
-# maps.RData
-
 library(tidyverse)
 library(lubridate)
 library(glue)
 library(magick)
+library(grid)
 library(patchwork)
 
 source("pmp-functions.R")
+
+load("maps.RData")
+
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
+                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
 
 ### parameters ###
@@ -17,29 +21,31 @@ userspath <- "../ebird-datasets/EBD/ebd_users_relMay-2022.txt"
 logo1 <- image_convert(image_read("bcilogo.png"), matte = T)
 logo2 <- image_convert(image_read("eBird India logo.png"), matte = T)
 
+rel_date <- "2022-06-01" %>% as_date
+cur_date <- "2022-07-01" %>% as_date
 
-# to make code robust against day = 31 (in which case the other lines produce NA)
-rel_date <- if (today() %>% day() == 31) {
-  (today() - days(1)) - months(1) %>% 
-    floor_date(unit = "month")
-} else {today() - months(1) %>% 
-    floor_date(unit = "month")}
+# 
+# # to make code robust against day = 31 (in which case the other lines produce NA)
+# rel_date <- if (today() %>% day() == 31) {
+#   (today() - days(1)) - months(1) %>% 
+#     floor_date(unit = "month")
+# } else {today() - months(1) %>% 
+#     floor_date(unit = "month")}
 
 rel_year <- rel_date %>% year()
 rel_month_num <- rel_date %>% month()
 rel_month_lab <- rel_date %>% month(label = T, abbr = T) 
 
-cur_date <- today() %>% floor_date(unit = "month") # date under consideration for current leaderboard
+# cur_date <- today() %>% floor_date(unit = "month") # date under consideration for current leaderboard
 pmpstartdate <- as_date("2021-07-01") # 1st July = PMP start
 
 
-data_annotation <- glue("Data from {date_to_string(pmpstartdate)} to {date_to_string(cur_date)}")
+data_annotation <- glue("Data from {date_to_string(pmpstartdate)} to {date_to_string(cur_date - 1)}")
 
 
 pmpdatapath <- glue("../ebird-datasets/EBD/pmp_rel{rel_month_lab}-{rel_year}.RData")
 
 ### ###
-
 
 ##### setup ####
 
@@ -72,17 +78,37 @@ data_pmp <- data_pmp %>%
                          # same as migratory year
                          levels = c("Summer", "Autumn", "Winter", "Spring")))
 
-load("maps.RData")
+# excluding non-patch-monitors having lists shared with patch-monitors
+temp1 <- data_pmp %>% 
+  group_by(LOCALITY.ID, GROUP.ID) %>% 
+  # no. of observers in instance
+  summarise(PATCH.OBS = n_distinct(SAMPLING.EVENT.IDENTIFIER)) 
 
-cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", 
-                "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+# selecting users with at least one solo PMP checklist to filter out non-monitors that 
+# only have shared lists with monitors
+temp2 <- data_pmp %>% 
+  left_join(temp1) %>% 
+  filter(PATCH.OBS == 1) %>% 
+  # to remove same observer's second account
+  group_by(FULL.NAME, OBSERVER.ID) %>% 
+  # choosing account with most observations (assumed to be primary)
+  summarise(N = n()) %>% 
+  arrange(desc(N)) %>% slice(1) %>% ungroup() %>% 
+  distinct(FULL.NAME, OBSERVER.ID)
 
+data_pmp <- data_pmp %>% 
+  filter(OBSERVER.ID %in% temp2$OBSERVER.ID) %>% 
+  # filter(str_detect(LOCALITY, "PMP")) %>% # PMP in location name is not mandate
+  # Lakshmikant/Loukika slash
+  mutate(FULL.NAME = case_when(FULL.NAME == "Lakshmikant Neve" ~ 
+                                 "Lakshmikant/Loukika Neve",
+                               TRUE ~ FULL.NAME))
 
 ##### filtering species per patch per observer for analyses ####
 
 # filtering 10 species per observer across all their patches
 filt_spec <- data_pmp %>% 
-  group_by(OBSERVER.ID, COMMON.NAME, LOCALITY.ID, SEASON) %>% 
+  group_by(OBSERVER.ID, FULL.NAME, COMMON.NAME, LOCALITY.ID, SEASON) %>% 
   summarise(N.MONTHS = n_distinct(MONTH),
             N.OBS = n_distinct(SAMPLING.EVENT.IDENTIFIER)) %>% 
   # every month per season
@@ -93,16 +119,17 @@ filt_spec <- data_pmp %>%
   filter(N.SEASONS >= 2) %>% 
   # selecting 10 species with most observations across all patches
   arrange(OBSERVER.ID, COMMON.NAME, LOCALITY.ID, desc(TOT.OBS)) %>% 
-  group_by(OBSERVER.ID, COMMON.NAME) %>% 
+  group_by(OBSERVER.ID, FULL.NAME, COMMON.NAME) %>% 
   slice(1) %>% 
   arrange(OBSERVER.ID, desc(TOT.OBS)) %>% 
-  group_by(OBSERVER.ID) %>% 
+  group_by(OBSERVER.ID, FULL.NAME) %>% 
   slice(1:10) %>% 
-  distinct(OBSERVER.ID, COMMON.NAME)
+  distinct(OBSERVER.ID, FULL.NAME, COMMON.NAME, TOT.OBS) %>% 
+  ungroup()
   
 # species must be present in every month per season, in at least two seasons
 filt_specloc <- data_pmp %>%
-  group_by(OBSERVER.ID, LOCALITY.ID, COMMON.NAME, SEASON) %>%
+  group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID, COMMON.NAME, SEASON) %>%
   summarise(N.MONTHS = n_distinct(MONTH),
             N.OBS = n_distinct(SAMPLING.EVENT.IDENTIFIER)) %>%
   # every month per season
@@ -111,23 +138,24 @@ filt_specloc <- data_pmp %>%
             TOT.OBS = sum(N.OBS)) %>%
   # at least 2 seasons
   filter(N.SEASONS >= 2) %>%
-  distinct(OBSERVER.ID, LOCALITY.ID, COMMON.NAME)
+  distinct(OBSERVER.ID, FULL.NAME, LOCALITY.ID, COMMON.NAME) %>% 
+  ungroup()
   
 # location (patch) needs data in every month per season, in at least two seasons
 filt_loc <- data_pmp %>% 
-  group_by(OBSERVER.ID, LOCALITY.ID, SEASON) %>% 
+  group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID, SEASON) %>% 
   summarise(N.MONTHS = n_distinct(MONTH)) %>% 
   # every month per season
   filter(N.MONTHS == 3) %>% 
   summarise(N.SEASONS = n_distinct(SEASON)) %>% 
   # at least 2 seasons
   filter(N.SEASONS >= 2) %>% 
-  distinct(OBSERVER.ID, LOCALITY.ID)
+  distinct(OBSERVER.ID, FULL.NAME, LOCALITY.ID) %>% 
+  ungroup()
 
 
 ##### map of PMP observations ####
 
-require(grid)
 map_pmp <- data_pmp %>% 
   group_by(OBSERVER.ID, LOCALITY.ID, LONGITUDE, LATITUDE) %>% 
   summarise(N.SEASONS = n_distinct(SEASON)) %>% 
@@ -148,14 +176,14 @@ map_pmp <- data_pmp %>%
         panel.border = element_blank(),
         plot.background = element_rect(fill = "#EAEAEB", colour = NA),
         panel.background = element_rect(fill = "#EAEAEB", colour = NA),
-        plot.title = element_text(hjust = 0, vjust = -0.8, lineheight = 0.3,
-                                  face = "italic", size = 48),
-        plot.title.position = "plot",
+        plot.title = element_text(hjust = 0, vjust = -0.8, lineheight = 0.8,
+                                  size = 18),
+        plot.title.position = "panel",
         legend.direction = "horizontal",
         legend.position = c(0.6, 0.25),
         legend.background = element_blank(),
-        legend.text = element_text(size = 20),
-        legend.title = element_text(size = 28),
+        legend.text = element_text(size = 7),
+        legend.title = element_text(size = 10),
         # no fill around legend points
         legend.key = element_blank(),
         legend.spacing.x = unit(0, "mm"),
@@ -170,7 +198,7 @@ map_pmp <- data_pmp %>%
                              gp = gpar(col = "#ADADAD", 
                                        cex = 1.0,
                                        fontface = "italic",
-                                       fontsize = 24)),
+                                       fontsize = 6)),
                     xmin = 66, xmax = 69,
                     ymin = 5.5, ymax = 6.5) +
   annotation_raster(logo1, 
@@ -180,8 +208,8 @@ map_pmp <- data_pmp %>%
                     ymin = 39, ymax = 41,
                     xmin = 95.1, xmax = 98.6)
 
-ggsave("temp1.png", map_pmp, dpi = 300,
-       width = 7, height = 7, units = "in")
+ggsave(glue("pmp-yearly-patterns/pmp-map_{rel_year}.png"), map_pmp, 
+       dpi = 300, width = 6, height = 6, units = "in")
 
 
 ##### change in frequency ####
@@ -215,50 +243,16 @@ for (obs in 1:n_distinct(data1$OBSERVER.ID)) {
     
     data_temp2 <- filter(data_temp1, COMMON.NAME == spec_temp)
     
-    n_loc <- n_distinct(data_temp2$LOCALITY)
+
     path_temp <- glue("pmp-yearly-patterns/{obsname_temp}/Reporting frequency of species/")
     file_temp <- glue("{rel_year}_{str_replace(spec_temp, ' ', '-')}.png")
     
     
-    logos <- ggplot(mapping = aes(0:1, 0:1)) +
-      scale_x_continuous(limits = c(0, 1)) +
-      scale_y_continuous(limits = c(0.5, 1)) +
-      theme_void() +
-      coord_cartesian(clip = "off") +
-      annotation_custom(textGrob(label = glue("{obsname_temp}'s patches"), 
-                                 gp = gpar(fontsize = 42), 
-                                 just = c("left", "bottom")),
-                        xmax = -0.15, 
-                        ymin = 0.9, ymax = 1.1) +
-      annotation_custom(textGrob(label = glue("Species: {spec_temp}"), 
-                                 just = c("left", "bottom"),
-                                 vjust = 1,
-                                 gp = gpar(fontsize = 32)),
-                        xmax = -0.15,
-                        ymin = 0.75, ymax = 0.85) +
-      annotation_custom(textGrob(label = glue("{data_annotation}"), 
-                                 just = c("left", "bottom"), 
-                                 vjust = 3, 
-                                 gp = gpar(col = "#ADADAD", 
-                                           cex = 1.0, fontsize = 16,
-                                           fontface = "italic", colour = "#ADADAD")),
-                        xmax = -0.15, 
-                        ymin = 0.55, ymax = 0.65) +
-      annotation_raster(logo1, 
-                        xmin = 0.72, xmax = 0.92,
-                        ymin = 0.7, ymax = 1.1) +
-      annotation_raster(logo2, 
-                        xmin = 0.93, xmax = 1.05,
-                        ymin = 0.7, ymax = 1.1) +
-      theme(axis.line = element_blank(),
-            axis.ticks = element_blank(),
-            panel.grid = element_blank(),
-            plot.background = element_rect(fill = "#EAEAEB", colour = NA),
-            panel.background = element_rect(fill = "#EAEAEB", colour = NA), 
-            panel.spacing = unit(2, "lines"),
-            plot.margin = unit(c(1, 0.5, 1, 0.5), "lines"))
-    
-    plot_temp <- (logos) / 
+    # setting up dimensions and header for the figure
+    gen_fig_setup(data_temp2, spec_level = T)
+
+        
+    plot_temp <- (header) / 
       (ggplot(data_temp2, 
               aes(as.numeric(SEASON), REP.FREQ, colour = COMMON.NAME)) +
       facet_wrap(~ LOCALITY, ncol = 1) +
@@ -272,36 +266,33 @@ for (obs in 1:n_distinct(data1$OBSERVER.ID)) {
       labs(x = "Season", y = "Reporting frequency (%)") +
       theme(axis.line = element_blank(),
             axis.ticks = element_blank(),
-            axis.text = element_text(size = 17),
-            axis.title = element_text(size = 20),
+            axis.text = element_text(size = 8),
+            axis.title = element_text(size = 10),
             panel.grid = element_blank(),
             panel.grid.major.y = element_line(linetype = 3, colour = "#C2C2C2"),
-            strip.text = element_text(size = 20),
+            strip.text = element_text(size = 10),
             strip.background = element_rect(fill = "#D6D6D6", colour = NA),
             plot.background = element_rect(fill = "#EAEAEB", colour = NA),
             panel.background = element_rect(fill = "#EAEAEB", colour = NA),
-            legend.background = element_blank(),
-            legend.text = element_text(size = 7),
-            # no fill around legend points
-            legend.key = element_blank(), 
+            # legend.background = element_blank(),
+            # legend.text = element_text(size = 7),
+            # # no fill around legend points
+            # legend.key = element_blank(), 
             panel.spacing = unit(2, "lines"),
             plot.margin = unit(c(1, 0.5, 1, 0.5), "lines"))) +
-      plot_layout(heights = c(0.15, 0.85*n_loc)) &
+      plot_layout(heights = c(patch_a, patch_b)) &
       theme(plot.background = element_rect(fill = "#EAEAEB", colour = NA),
             panel.background = element_rect(fill = "#EAEAEB", colour = NA))
-    
+
     if (!dir.exists(path_temp)) (dir.create(path_temp, recursive = T))
       
     ggsave(filename = glue("{path_temp}{file_temp}"), 
            plot = plot_temp, 
-           dpi = 300, width = 6, height = (0.75 + 3*n_loc), units = "in")
+           dpi = 300, width = 6, height = fig_inches, units = "in")
     
   }
 
 }
-
-ggsave("temp2.png", plot_temp, dpi = 300,
-       width = 6, height = (0.75 + 3*n_loc), units = "in")
 
 
 ##### change in species richness ####
@@ -310,64 +301,75 @@ data2 <- data_pmp %>%
   group_by(OBSERVER.ID, FULL.NAME, LOCALITY, LOCALITY.ID, 
            SEASON, SAMPLING.EVENT.IDENTIFIER) %>% 
   summarise(NO.SP = n_distinct(COMMON.NAME)) %>% 
+  summarise(NO.SP = boot_conf(x = NO.SP)) %>% 
+  group_by(OBSERVER.ID, FULL.NAME, LOCALITY, LOCALITY.ID, SEASON) %>% 
+  summarise(SE = sd(NO.SP),
+            NO.SP = mean(NO.SP),
+            CI.L = NO.SP - 1.96*SE,
+            CI.U = NO.SP + 1.96*SE) %>% 
   ungroup() %>% 
-  right_join(filt_spec)
-
-obs_temp <- unique(data2$OBSERVER.ID)[1]
-data_temp <- filter(data2, OBSERVER.ID == obs_temp)
-
-n_loc <- n_distinct(data_temp$LOCALITY)
+  right_join(filt_loc)
 
 
-median_IQR <- function(x) {
-  data.frame(y = median(x), # Median
-             ymin = quantile(x)[2], # 1st quartile
-             ymax = quantile(x)[4])  # 3rd quartile
+for (obs in 1:n_distinct(data2$OBSERVER.ID)) {
+  
+  obs_temp <- unique(data2$OBSERVER.ID)[obs]
+  obsname_temp <- data2 %>% distinct(OBSERVER.ID, FULL.NAME) %>% 
+    filter(OBSERVER.ID %in% obs_temp) %>% distinct(FULL.NAME) %>% as.character()
+  data_temp1 <- filter(data2, OBSERVER.ID == obs_temp)
+  
+  print(glue("Loop progress: observer {obs}"))
+  
+  
+  path_temp <- glue("pmp-yearly-patterns/{obsname_temp}/Species richness/")
+  file_temp <- glue("{rel_year}.png")
+  
+  # setting up dimensions and header for the figure
+  gen_fig_setup(data_temp1, spec_level = F)
+  
+  
+  plot_temp <- (header) / 
+    (ggplot(data_temp1, 
+            aes(as.numeric(SEASON), NO.SP)) +
+       facet_wrap(~ LOCALITY, ncol = 1, scales = "free") +
+       geom_ribbon(aes(ymin = CI.L, ymax = CI.U),
+                   colour = NA, fill = "#ADADAD", alpha = 0.2) +
+       geom_point(size = 3, colour = "black") +
+       geom_line(size = 1, colour = "black") +
+       scale_x_continuous(labels = unique(data_temp1$SEASON), 
+                          breaks = unique(as.numeric(data_temp1$SEASON)),
+                          limits = c(1, 4)) +
+       scale_y_continuous(breaks = seq(0, 100, 4)) +
+       labs(x = "Season", y = "Number of species reported") +
+       theme(axis.line = element_blank(),
+             axis.ticks = element_blank(),
+             axis.text = element_text(size = 8),
+             axis.title = element_text(size = 10),
+             panel.grid = element_blank(),
+             panel.grid.major.y = element_line(linetype = 3, colour = "#C2C2C2"),
+             strip.text = element_text(size = 10),
+             strip.background = element_rect(fill = "#D6D6D6", colour = NA),
+             plot.background = element_rect(fill = "#EAEAEB", colour = NA),
+             panel.background = element_rect(fill = "#EAEAEB", colour = NA),
+             # legend.background = element_blank(),
+             # legend.text = element_text(size = 7),
+             # # no fill around legend points
+             # legend.key = element_blank(), 
+             panel.spacing = unit(2, "lines"),
+             plot.margin = unit(c(1, 0.5, 1, 0.5), "lines"))) +
+    plot_layout(heights = c(patch_a, patch_b)) &
+    theme(plot.background = element_rect(fill = "#EAEAEB", colour = NA),
+          panel.background = element_rect(fill = "#EAEAEB", colour = NA))
+
+  
+  if (!dir.exists(path_temp)) (dir.create(path_temp, recursive = T))
+
+  ggsave(filename = glue("{path_temp}{file_temp}"), 
+         plot = plot_temp, 
+         dpi = 300, width = 6, height = fig_inches, units = "in")
+  
 }
 
-# Function for min, max values
-range <- function(x) {
-  data.frame(ymin = min(x),
-             ymax = max(x))
-}
-
-plot_temp <- ggplot(data_temp, 
-                    aes(as.numeric(SEASON), NO.SP)) +
-  facet_wrap(~ LOCALITY, ncol = 1, scales = "free") +
-  # main points
-  stat_summary(geom = "point", fun = "median",
-               size = 5, col = "#1D6F72") + 
-  stat_summary(geom = "linerange", fun.data = median_IQR, 
-               size = 3, col = "#1D6F72", alpha = 0.5) +
-  stat_summary(geom = "linerange", fun.data = range, 
-               size = 3, col = "#1D6F72", alpha = 0.25) +
-  # data points
-  geom_point(size = 3, alpha = 0.05, position = position_jitter(width = 0.1)) +
-  scale_x_continuous(labels = unique(data_temp$SEASON)) +
-  scale_y_continuous(breaks = seq(0, 100, 5)) +
-  labs(title = glue("{data_temp$FULL.NAME}'s patches"),
-       subtitle = glue("\n \n{data_annotation} \n \n"),
-       x = "Season", y = "Number of species reported") +
-  theme(axis.line = element_blank(),
-        axis.ticks = element_blank(),
-        panel.grid = element_blank(),
-        panel.grid.major.y = element_line(linetype = 3, colour = "#C2C2C2"),
-        plot.title = element_text(hjust = -0.1, size = 16),
-        plot.subtitle = element_text(hjust = -0.09, size = 8, 
-                                     colour = "#ADADAD", face = "italic"),
-        strip.text = element_text(size = 10),
-        strip.background = element_rect(fill = "#D6D6D6", colour = NA),
-        plot.background = element_rect(fill = "#EAEAEB", colour = NA),
-        panel.background = element_rect(fill = "#EAEAEB", colour = NA),
-        legend.background = element_blank(),
-        legend.text = element_text(size = 7),
-        # no fill around legend points
-        legend.key = element_blank(), 
-        panel.spacing = unit(2, "lines"),
-        plot.margin = unit(c(1, 0.5, 1, 0.5), "lines"))
-
-ggsave("temp3.png", plot_temp, dpi = 300,
-       width = 6, height = 3*n_loc, units = "in")
 
 
 ##### change in flock sizes ####
