@@ -101,7 +101,7 @@ data_pmp <- data_pmp %>%
   # filter(str_detect(LOCALITY, "PMP")) %>% # PMP in location name is not mandate
   # Lakshmikant/Loukika slash
   mutate(FULL.NAME = case_when(FULL.NAME == "Lakshmikant Neve" ~ 
-                                 "Lakshmikant/Loukika Neve",
+                                 "Lakshmikant-Loukika Neve",
                                TRUE ~ FULL.NAME))
 
 ##### filtering species per patch per observer for analyses ####

@@ -100,7 +100,7 @@ data2 <- data1 %>%
          str_detect(LOCALITY, "PMP")) %>% 
   # Lakshmikant/Loukika slash
   mutate(FULL.NAME = case_when(FULL.NAME == "Lakshmikant Neve" ~ 
-                                 "Lakshmikant/Loukika Neve",
+                                 "Lakshmikant-Loukika Neve",
                                TRUE ~ FULL.NAME))
 
 
