@@ -167,7 +167,8 @@ map_pmp <- data_pmp %>%
              size = 4, alpha = 0.2, stroke = 0) +
   scale_colour_viridis_d(name = "Number of seasons") +
   # scale_colour_brewer(palette = 3, name = "Number of seasons", direction = -1) +
-  labs(title = "Patch Monitoring Project \nacross the country") +
+  labs(title = "Patch Monitoring Project \nacross the country",
+       subtitle = " ") +
   theme(axis.line = element_blank(),
         axis.text = element_blank(),
         axis.ticks = element_blank(),
@@ -202,13 +203,13 @@ map_pmp <- data_pmp %>%
                     xmin = 66, xmax = 69,
                     ymin = 5.5, ymax = 6.5) +
   annotation_raster(logo1, 
-                    ymin = 39, ymax = 41,
+                    ymin = 41, ymax = 43,
                     xmin = 88.5, xmax = 94.1) +
   annotation_raster(logo2, 
-                    ymin = 39, ymax = 41,
+                    ymin = 41, ymax = 43,
                     xmin = 95.1, xmax = 98.6)
 
-ggsave(glue("pmp-yearly-patterns/pmp-map_{rel_year}.png"), map_pmp, 
+ggsave(glue("pmp-yearly-patterns/{rel_year}/pmp-map_{rel_year}.png"), map_pmp, 
        dpi = 300, width = 6, height = 6, units = "in")
 
 
@@ -229,7 +230,7 @@ data1 <- data_pmp %>%
   ungroup()
 
 for (obs in 1:n_distinct(data1$OBSERVER.ID)) {
-  
+
   obs_temp <- unique(data1$OBSERVER.ID)[obs]
   obsname_temp <- data1 %>% distinct(OBSERVER.ID, FULL.NAME) %>% 
     filter(OBSERVER.ID %in% obs_temp) %>% distinct(FULL.NAME) %>% as.character()
@@ -244,8 +245,8 @@ for (obs in 1:n_distinct(data1$OBSERVER.ID)) {
     data_temp2 <- filter(data_temp1, COMMON.NAME == spec_temp)
     
 
-    path_temp <- glue("pmp-yearly-patterns/{obsname_temp}/Reporting frequency of species/")
-    file_temp <- glue("{rel_year}_{str_replace(spec_temp, ' ', '-')}.png")
+    path_temp <- glue("pmp-yearly-patterns/{rel_year}/{obsname_temp}/Reporting frequency of species/")
+    file_temp <- glue("{rel_year}_RF_{str_replace(spec_temp, ' ', '-')}.png")
     
     
     # setting up dimensions and header for the figure
@@ -321,8 +322,8 @@ for (obs in 1:n_distinct(data2$OBSERVER.ID)) {
   print(glue("Loop progress: observer {obs}"))
   
   
-  path_temp <- glue("pmp-yearly-patterns/{obsname_temp}/Species richness/")
-  file_temp <- glue("{rel_year}.png")
+  path_temp <- glue("pmp-yearly-patterns/{rel_year}/{obsname_temp}/Species richness/")
+  file_temp <- glue("{rel_year}_SR.png")
   
   # setting up dimensions and header for the figure
   gen_fig_setup(data_temp1, metric = 2)
@@ -370,8 +371,6 @@ for (obs in 1:n_distinct(data2$OBSERVER.ID)) {
   
 }
 
-
-
 ##### change in flock sizes ####
 
 flock_spec <- c("Common Myna", "Red-vented Bulbul", 
@@ -409,8 +408,8 @@ for (obs in 1:n_distinct(data3$OBSERVER.ID)) {
     spec_temp <- unique(data_temp1$COMMON.NAME)[spec]
     data_temp2 <- filter(data_temp1, COMMON.NAME == spec_temp)
     
-    path_temp <- glue("pmp-yearly-patterns/{obsname_temp}/Species counts/")
-    file_temp <- glue("{rel_year}.png")
+    path_temp <- glue("pmp-yearly-patterns/{rel_year}/{obsname_temp}/Species counts/")
+    file_temp <- glue("{rel_year}_SC_{str_replace(spec_temp, ' ', '-')}.png")
     
     # setting up dimensions and header for the figure
     gen_fig_setup(data_temp2, metric = 3)
