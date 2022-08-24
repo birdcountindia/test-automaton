@@ -160,9 +160,12 @@ filt_specloc <- data_pmp %>%
             TOT.OBS = sum(N.OBS)) %>%
   # at least 2 seasons
   filter(N.SEASONS >= 2) %>%
+  # removing species commonly observed in patches (>90% repfreq in all seasons)
+  anti_join(remove_common) %>% 
   distinct(OBSERVER.ID, FULL.NAME, LOCALITY.ID, COMMON.NAME) %>% 
   ungroup()
   
+
 # location (patch) needs data in every month per season, in at least two seasons
 filt_loc <- data_pmp %>% 
   group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID, SEASON) %>% 
@@ -273,6 +276,13 @@ for (obs in 1:n_distinct(data1$OBSERVER.ID)) {
     
     # setting up dimensions and header for the figure
     gen_fig_setup(data_temp2, metric = 1)
+    
+    # to add sample size in x-axis labels
+    labels <- data_temp2 %>% 
+      distinct(SEASON, TOT.LISTS) %>% 
+      right_join(data_temp1 %>% select(SEASON)) %>% 
+      distinct(SEASON, TOT.LISTS) %>% 
+      mutate(TOT.LISTS = replace_na(TOT.LISTS, 0))
 
         
     plot_temp <- (header) / 
@@ -281,8 +291,8 @@ for (obs in 1:n_distinct(data1$OBSERVER.ID)) {
       facet_wrap(~ LOCALITY, ncol = 1) +
       scale_y_continuous(limits = c(0,100)) +
       # x axis should have four seasons always so taking from previous data object
-      scale_x_continuous(labels = unique(data_temp1$SEASON), 
-                         breaks = unique(as.numeric(data_temp1$SEASON)),
+      scale_x_continuous(labels = glue("{labels$SEASON}\n(N = {labels$TOT.LISTS})"), 
+                         breaks = as.numeric(labels$SEASON),
                          limits = c(1, 4)) +
       geom_point(size = 4, position = position_dodge(width = 0.2), colour = "black") +
       geom_line(size = 1, position = position_dodge(width = 0.2), colour = "black") +
