@@ -61,6 +61,11 @@ data_pmp <- left_join(data_pmp, eBird_users, "OBSERVER.ID")
 data_pmp <- data_pmp %>% 
   ungroup() %>% 
   filter(OBSERVER.ID != "obsr2607928") %>% # PMP account
+  # removing spuhs, slashes, etc.
+  mutate(CATEGORY = if_else(CATEGORY == "domestic" & COMMON.NAME == "Rock Pigeon", 
+                            "species",
+                            CATEGORY)) %>% 
+  filter(CATEGORY %in% c("issf", "species")) %>% 
   # basic eligible list filter
   filter(ALL.SPECIES.REPORTED == 1, DURATION.MINUTES >= 14) %>% 
   group_by(SAMPLING.EVENT.IDENTIFIER) %>% 
@@ -106,7 +111,21 @@ data_pmp <- data_pmp %>%
 
 ##### filtering species per patch per observer for analyses ####
 
-# filtering 10 species per observer across all their patches
+# list of species commonly observed in patches to be removed
+remove_common <- data_pmp %>% 
+  group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID, SEASON) %>% 
+  mutate(TOT.LISTS = n_distinct(SAMPLING.EVENT.IDENTIFIER)) %>% 
+  group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID, COMMON.NAME, SEASON) %>% 
+  summarise(N.LISTS = n_distinct(SAMPLING.EVENT.IDENTIFIER),
+            REP.FREQ = (N.LISTS/min(TOT.LISTS)) * 100,
+            NINETY = if_else(REP.FREQ > 90, 1, 0)) %>% 
+  summarise(TOT.SEASONS = n_distinct(SEASON),
+            # if species observed in more than two seasons AND repfreq > 90 in all seasons
+            REMOVE = if_else(TOT.SEASONS > 2 & sum(NINETY) == TOT.SEASONS, 1, 0)) %>% 
+  ungroup() %>% 
+  filter(REMOVE == 1)
+
+# filtering 20 species per observer across all their patches
 filt_spec <- data_pmp %>% 
   group_by(OBSERVER.ID, FULL.NAME, COMMON.NAME, LOCALITY.ID, SEASON) %>% 
   summarise(N.MONTHS = n_distinct(MONTH),
@@ -117,15 +136,18 @@ filt_spec <- data_pmp %>%
             TOT.OBS = sum(N.OBS)) %>% 
   # at least 2 seasons
   filter(N.SEASONS >= 2) %>% 
-  # selecting 10 species with most observations across all patches
+  # removing species commonly observed in patches (>90% repfreq in all seasons)
+  anti_join(remove_common) %>% 
+  # selecting 20 species with most observations across all patches
   arrange(OBSERVER.ID, COMMON.NAME, LOCALITY.ID, desc(TOT.OBS)) %>% 
   group_by(OBSERVER.ID, FULL.NAME, COMMON.NAME) %>% 
   slice(1) %>% 
   arrange(OBSERVER.ID, desc(TOT.OBS)) %>% 
   group_by(OBSERVER.ID, FULL.NAME) %>% 
-  slice(1:10) %>% 
+  slice(1:20) %>% 
   distinct(OBSERVER.ID, FULL.NAME, COMMON.NAME, TOT.OBS) %>% 
   ungroup()
+
   
 # species must be present in every month per season, in at least two seasons
 filt_specloc <- data_pmp %>%
@@ -373,8 +395,8 @@ for (obs in 1:n_distinct(data2$OBSERVER.ID)) {
 
 ##### change in flock sizes ####
 
-flock_spec <- c("Common Myna", "Red-vented Bulbul", 
-                "Rose-ringed Parakeet", "Black Drongo")
+flock_spec <- c("Common Myna", "Red-vented Bulbul", "Rose-ringed Parakeet", "Black Kite", 
+                "Brahminy Kite", "Cattle Egret", "Indian White-eye", "House Crow")
 
 data3 <- data_pmp %>% 
   right_join(filt_specloc) %>% 
