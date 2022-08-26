@@ -125,8 +125,8 @@ remove_common <- data_pmp %>%
   ungroup() %>% 
   filter(REMOVE == 1)
 
-# filtering 20 species per observer across all their patches
-filt_spec <- data_pmp %>% 
+# filtering 20 species per observer across all their patches (removing very common spp.)
+filt_spec_RC <- data_pmp %>% 
   group_by(OBSERVER.ID, FULL.NAME, COMMON.NAME, LOCALITY.ID, SEASON) %>% 
   summarise(N.MONTHS = n_distinct(MONTH),
             N.OBS = n_distinct(SAMPLING.EVENT.IDENTIFIER)) %>% 
@@ -136,8 +136,8 @@ filt_spec <- data_pmp %>%
             TOT.OBS = sum(N.OBS)) %>% 
   # at least 2 seasons
   filter(N.SEASONS >= 2) %>% 
-  # removing species commonly observed in patches (>90% repfreq in all seasons)
-  anti_join(remove_common) %>% 
+  # # removing species commonly observed in patches (>90% repfreq in all seasons)
+  anti_join(remove_common) %>%
   # selecting 20 species with most observations across all patches
   arrange(OBSERVER.ID, COMMON.NAME, LOCALITY.ID, desc(TOT.OBS)) %>% 
   group_by(OBSERVER.ID, FULL.NAME, COMMON.NAME) %>% 
@@ -149,8 +149,8 @@ filt_spec <- data_pmp %>%
   ungroup()
 
   
-# species must be present in every month per season, in at least two seasons
-filt_specloc <- data_pmp %>%
+# species must be present in every month per season, in at least two seasons (removing very common spp.)
+filt_specloc_RC <- data_pmp %>%
   group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID, COMMON.NAME, SEASON) %>%
   summarise(N.MONTHS = n_distinct(MONTH),
             N.OBS = n_distinct(SAMPLING.EVENT.IDENTIFIER)) %>%
@@ -161,7 +161,44 @@ filt_specloc <- data_pmp %>%
   # at least 2 seasons
   filter(N.SEASONS >= 2) %>%
   # removing species commonly observed in patches (>90% repfreq in all seasons)
-  anti_join(remove_common) %>% 
+  anti_join(remove_common) %>%
+  distinct(OBSERVER.ID, FULL.NAME, LOCALITY.ID, COMMON.NAME) %>% 
+  ungroup()
+
+# filtering 20 species per observer across all their patches (w/o removing very common spp.)
+filt_spec <- data_pmp %>% 
+  group_by(OBSERVER.ID, FULL.NAME, COMMON.NAME, LOCALITY.ID, SEASON) %>% 
+  summarise(N.MONTHS = n_distinct(MONTH),
+            N.OBS = n_distinct(SAMPLING.EVENT.IDENTIFIER)) %>% 
+  # every month per season
+  filter(N.MONTHS == 3) %>% 
+  summarise(N.SEASONS = n_distinct(SEASON),
+            TOT.OBS = sum(N.OBS)) %>% 
+  # at least 2 seasons
+  filter(N.SEASONS >= 2) %>% 
+  # selecting 20 species with most observations across all patches
+  arrange(OBSERVER.ID, COMMON.NAME, LOCALITY.ID, desc(TOT.OBS)) %>% 
+  group_by(OBSERVER.ID, FULL.NAME, COMMON.NAME) %>% 
+  slice(1) %>% 
+  arrange(OBSERVER.ID, desc(TOT.OBS)) %>% 
+  group_by(OBSERVER.ID, FULL.NAME) %>% 
+  slice(1:20) %>% 
+  distinct(OBSERVER.ID, FULL.NAME, COMMON.NAME, TOT.OBS) %>% 
+  ungroup()
+
+
+# species must be present in every month per season, in at least two seasons 
+# (w/o removing very common spp.)
+filt_specloc <- data_pmp %>%
+  group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID, COMMON.NAME, SEASON) %>%
+  summarise(N.MONTHS = n_distinct(MONTH),
+            N.OBS = n_distinct(SAMPLING.EVENT.IDENTIFIER)) %>%
+  # every month per season
+  filter(N.MONTHS == 3) %>%
+  summarise(N.SEASONS = n_distinct(SEASON),
+            TOT.OBS = sum(N.OBS)) %>%
+  # at least 2 seasons
+  filter(N.SEASONS >= 2) %>%
   distinct(OBSERVER.ID, FULL.NAME, LOCALITY.ID, COMMON.NAME) %>% 
   ungroup()
   
@@ -245,14 +282,15 @@ data1 <- data_pmp %>%
   summarise(TOT.LISTS = n_distinct(SAMPLING.EVENT.IDENTIFIER)) %>% 
   ungroup() %>% 
   right_join(data_pmp) %>% 
-  right_join(filt_specloc) %>%
-  right_join(filt_spec) %>% 
+  right_join(filt_specloc_RC) %>%
+  right_join(filt_spec_RC) %>% 
   arrange(OBSERVER.ID, LOCALITY.ID, SEASON, SAMPLING.EVENT.IDENTIFIER) %>% 
   group_by(OBSERVER.ID, FULL.NAME, LOCALITY, COMMON.NAME, SEASON) %>% 
   summarise(N.LISTS = n_distinct(SAMPLING.EVENT.IDENTIFIER),
             TOT.LISTS = min(TOT.LISTS),
             REP.FREQ = (N.LISTS/TOT.LISTS) * 100) %>% 
   ungroup()
+
 
 for (obs in 1:n_distinct(data1$OBSERVER.ID)) {
 
@@ -490,3 +528,6 @@ for (obs in 1:n_distinct(data3$OBSERVER.ID)) {
   
 }
 
+
+
+##### change in breeding codes ####
