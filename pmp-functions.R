@@ -26,8 +26,8 @@ gen_fig_setup <- function(data, metric) {
   
   # metric any integer from 1 to 3
   metric_name <- case_when(metric == 1 ~ "reporting frequency",
-                           metric == 2 ~ "species richness",
-                           metric == 3 ~ "total bird counts")
+                           metric == 2 ~ "species richness per checklist",
+                           metric == 3 ~ "total bird counts per checklist")
   
   n_loc <- n_distinct(data$LOCALITY) # this will be basis for dimensions
   
