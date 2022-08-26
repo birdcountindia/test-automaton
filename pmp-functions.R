@@ -179,3 +179,28 @@ gen_fig_setup <- function(data, metric) {
   assign("header", header, .GlobalEnv)
   
 }
+
+
+##### Calculating number of axis breaks ####
+
+# Given upper and lower bounds of axis limits, and a standard vector of breaks, calculate 
+# how many breaks will occur in the graph panel.
+# (This can then be used in a conditional statement to supply a different breaks vector.)
+
+nbreaks <- function(seqfrom, seqto, seqby, upper, lower) {
+
+  seq(seqfrom, seqto, seqby) %>% .[. <= max(upper) & . >= min(lower)]
+  
+}
+
+# To ensure that y axis has more than 1 break (made for standard breaks of seq(0, 100, 4) )
+
+conditional_ybreaks <- function(seqfrom, seqto, seqby, upper, lower) {
+  if (length(nbreaks(seqfrom, seqto, seqby, upper, lower)) > 1) {
+    scale_y_continuous(breaks = seq(seqfrom, seqto, seqby))
+  } else if (length(nbreaks(seqfrom, seqto, seqby/2, upper, lower)) > 1) {
+    scale_y_continuous(breaks = seq(seqfrom, seqto, seqby/2))
+  } else {
+    scale_y_continuous(breaks = seq(seqfrom, seqto, seqby/4))
+  }
+}

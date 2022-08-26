@@ -372,7 +372,7 @@ for (obs in 1:n_distinct(data2$OBSERVER.ID)) {
        scale_x_continuous(labels = unique(data_temp1$SEASON), 
                           breaks = unique(as.numeric(data_temp1$SEASON)),
                           limits = c(1, 4)) +
-       scale_y_continuous(breaks = seq(0, 100, 4)) +
+       {conditional_ybreaks(0, 100, 4, data_temp1$CI.U, data_temp1$CI.L)} +
        labs(x = "Season", y = "Number of species reported") +
        theme(axis.line = element_blank(),
              axis.ticks = element_blank(),
@@ -394,7 +394,6 @@ for (obs in 1:n_distinct(data2$OBSERVER.ID)) {
     theme(plot.background = element_rect(fill = "#EAEAEB", colour = NA),
           panel.background = element_rect(fill = "#EAEAEB", colour = NA))
 
-  
   if (!dir.exists(path_temp)) (dir.create(path_temp, recursive = T))
 
   ggsave(filename = glue("{path_temp}{file_temp}"), 
