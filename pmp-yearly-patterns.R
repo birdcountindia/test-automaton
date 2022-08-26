@@ -4,6 +4,7 @@ library(glue)
 library(magick)
 library(grid)
 library(patchwork)
+library(ggtext)
 
 source("pmp-functions.R")
 
@@ -306,19 +307,10 @@ data1 <- data_pmp %>%
                        TOT.LISTS = 0)) %>% 
   ungroup()
   
-  
-x <- data1 %>% filter(FULL.NAME == "Adithya Bhat", LOCALITY == "Delta Beach-Coastal-PMP")
-
-# to add sample size in x-axis labels
-labels <- data_temp1 %>% 
-  distinct(SEASON, LOCALITY, TOT.LISTS) 
-
-  
-
 
 for (obs in 1:n_distinct(data1$OBSERVER.ID)) {
 
-  obs_temp <- unique(data1$OBSERVER.ID)[8]
+  obs_temp <- unique(data1$OBSERVER.ID)[obs]
   obsname_temp <- data1 %>% distinct(OBSERVER.ID, FULL.NAME) %>% 
     filter(OBSERVER.ID %in% obs_temp) %>% distinct(FULL.NAME) %>% as.character()
   data_temp1 <- filter(data1, OBSERVER.ID == obs_temp)
@@ -328,11 +320,13 @@ for (obs in 1:n_distinct(data1$OBSERVER.ID)) {
     
     print(glue("Loop progress: observer {obs}, species {spec}"))
     
-    spec_temp <- unique(data_temp1$COMMON.NAME)[2]
+    spec_temp <- unique(data_temp1$COMMON.NAME)[spec]
     
     data_temp2 <- filter(data_temp1, COMMON.NAME == spec_temp) %>% 
-      mutate(LABEL = glue("N = {data_temp2$TOT.LISTS}"))
-    
+      group_by(LOCALITY) %>% 
+      # for sample sizes
+      mutate(LOCALITY.N = glue("{LOCALITY}<br>N<sub>Su</sub> = {TOT.LISTS[1]}, N<sub>Au</sub> = {TOT.LISTS[2]}, N<sub>Wi</sub> = {TOT.LISTS[3]}, N<sub>Sp</sub> = {TOT.LISTS[4]}"))
+
 
     path_temp <- glue("pmp-yearly-patterns/{rel_year}/{obsname_temp}/Reporting frequency of species/")
     file_temp <- glue("{rel_year}_RF_{str_replace(spec_temp, ' ', '-')}.png")
@@ -340,29 +334,16 @@ for (obs in 1:n_distinct(data1$OBSERVER.ID)) {
     
     # setting up dimensions and header for the figure
     gen_fig_setup(data_temp2, metric = 1)
-    
-    labels <- data_temp2 %>% 
-      dplyr::select(SEASON, LOCALITY, TOT.LISTS) %>% 
-      mutate(BREAKS = as.numeric(SEASON),
-             LABEL = glue("{SEASON}\nN = {TOT.LISTS}"))
-    
-    fn <- function(breaks){
-      breaks %>% 
-        as.data.frame(col.names = "BREAKS") %>% 
-        left_join(by = "BREAKS") %>% 
-        dplyr::select(LABEL) %>% 
-        as.vector()
-    }
 
         
     plot_temp <- (header) / 
       (ggplot(data_temp2, 
               aes(as.numeric(SEASON), REP.FREQ, colour = COMMON.NAME)) +
-      facet_wrap(~ LOCALITY, ncol = 1) +
+      facet_wrap(~ LOCALITY.N, ncol = 1) +
       scale_y_continuous(limits = c(0,100)) +
       # x axis should have four seasons always so taking from previous data object
       scale_x_continuous(limits = c(1, 4),
-                         labels = fn) +
+                         labels = unique(data_temp2$SEASON)) +
       geom_point(size = 4, position = position_dodge(width = 0.2), colour = "black") +
       geom_line(size = 1, position = position_dodge(width = 0.2), colour = "black") +
       labs(x = "Season", y = "Reporting frequency (%)") +
@@ -372,7 +353,7 @@ for (obs in 1:n_distinct(data1$OBSERVER.ID)) {
             axis.title = element_text(size = 10),
             panel.grid = element_blank(),
             panel.grid.major.y = element_line(linetype = 3, colour = "#C2C2C2"),
-            strip.text = element_text(size = 10),
+            strip.text = element_markdown(size = 8, lineheight = 1.2),
             strip.background = element_rect(fill = "#D6D6D6", colour = NA),
             plot.background = element_rect(fill = "#EAEAEB", colour = NA),
             panel.background = element_rect(fill = "#EAEAEB", colour = NA),
@@ -386,8 +367,6 @@ for (obs in 1:n_distinct(data1$OBSERVER.ID)) {
       plot_layout(heights = c(patch_a, patch_b)) &
       theme(plot.background = element_rect(fill = "#EAEAEB", colour = NA),
             panel.background = element_rect(fill = "#EAEAEB", colour = NA))
-    
-    plot_temp
 
     if (!dir.exists(path_temp)) (dir.create(path_temp, recursive = T))
       
