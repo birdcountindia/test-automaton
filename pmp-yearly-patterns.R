@@ -448,11 +448,15 @@ data2 <- data_pmp %>%
   left_join(samplesizes) %>% 
   group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID, LOCALITY) %>% 
   complete(SEASON = unique(data_pmp$SEASON), 
-           fill = list(TOT.LISTS = 0,
-                       CI.L = 0,
-                       CI.U = 0)) %>% 
-  ungroup()
-
+           fill = list(TOT.LISTS = 0)) %>% 
+  ungroup() %>% 
+  mutate(NO.SP = case_when(TOT.LISTS != 0 & is.na(NO.SP) ~ 0,
+                           # TOT.LISTS == 0 & is.na(NO.SP) ~ NA_integer_, # already NA
+                           TOT.LISTS != 0 & !is.na(NO.SP) ~ NO.SP),
+         CI.L = case_when(TOT.LISTS != 0 & is.na(CI.L) ~ 0,
+                          TOT.LISTS != 0 & !is.na(CI.L) ~ CI.L),
+         CI.U = case_when(TOT.LISTS != 0 & is.na(CI.U) ~ 0,
+                          TOT.LISTS != 0 & !is.na(CI.U) ~ CI.U))
 
 for (obs in 1:n_distinct(data2$OBSERVER.ID)) {
   
