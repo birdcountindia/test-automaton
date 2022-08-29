@@ -24,10 +24,11 @@ boot_conf = function(x, fn = mean, B = 1000) {
 
 gen_fig_setup <- function(data, metric) {
   
-  # metric any integer from 1 to 3
+  # metric any integer from 1 to 4
   metric_name <- case_when(metric == 1 ~ "reporting frequency",
                            metric == 2 ~ "species richness per checklist",
-                           metric == 3 ~ "total bird counts per checklist")
+                           metric == 3 ~ "total bird counts per checklist",
+                           metric == 4 ~ "most advanced breeding behaviour per month")
   
   n_loc <- n_distinct(data$LOCALITY) # this will be basis for dimensions
   
@@ -35,7 +36,12 @@ gen_fig_setup <- function(data, metric) {
   logo_inches <- 1.2/(612/189) # height should be (fixed width in inches / asp.ratio)
   
   patch_a_inches <- 1.1 # after trial and error (header height in inches)
-  fig_inches <- patch_a_inches + 3*n_loc # non-header height should vary according to n_loc
+  # non-header height should vary according to n_loc
+  if (metric == 4) (
+    fig_inches <- patch_a_inches + (3*n_loc + 0.5)
+    ) else (
+      fig_inches <- patch_a_inches + 3*n_loc
+      )
   
   patch_a <- patch_a_inches/fig_inches
   patch_b <- 1 - patch_a
@@ -61,60 +67,112 @@ gen_fig_setup <- function(data, metric) {
   
   data_caption <- case_when(
     metric %in% 2:3 ~ glue("Points represent average values of {metric_name}; shaded regions are 95% confidence intervals."),
-    metric == 1 ~ glue("Points represent {metric_name}.")
+    metric %in% c(1, 4) ~ glue("Points represent {metric_name}.")
     )
   
   
   ### creating header
   
   # only when species information is required in header
-  if (metric %in% c(1, 3)) {
+  if (metric %in% c(1, 3, 4)) {
     
-  header <- ggplot(mapping = aes(0:1, 0:1)) +
-    scale_x_continuous(limits = c(0, 1)) +
-    scale_y_continuous(limits = c(1 - scale_y, 1)) +
-    theme_void() +
-    coord_cartesian(clip = "off") +
-    annotation_custom(textGrob(label = glue("{obsname_temp}'s patches"), 
-                               gp = gpar(fontsize = 16), 
-                               just = c("left", "bottom")),
-                      xmax = -0.2, 
-                      ymax = text1_ymax, ymin = text1_ymin) +
-    annotation_custom(textGrob(label = glue("Species: {spec_temp}"), 
-                               just = c("left", "bottom"),
-                               # vjust = 0.5,
-                               gp = gpar(fontsize = 12)),
-                      xmax = -0.2,
-                      ymax = text2_ymax, ymin = text2_ymin) +
-    annotation_custom(textGrob(label = glue("{data_annotation}"), 
-                               just = c("left", "bottom"), 
-                               # vjust = 1, 
-                               gp = gpar(col = "#ADADAD", 
-                                         cex = 1.0, fontsize = 6,
-                                         fontface = "italic")),
-                      xmax = -0.2, 
-                      ymax = text3_ymax, ymin = text3_ymin) +
-    annotation_custom(textGrob(label = glue("{data_caption}"), 
-                               just = c("left", "bottom"), 
-                               # vjust = 1, 
-                               gp = gpar(col = "#ADADAD", 
-                                         cex = 1.0, fontsize = 6,
-                                         fontface = "italic")),
-                      xmax = -0.2, 
-                      ymax = text4_ymax, ymin = text4_ymin) +
-    annotation_raster(logo1, 
-                      xmin = 0.72, xmax = 0.92,
-                      ymax = 1.1, ymin = 1.1 - logo_height) +
-    annotation_raster(logo2, 
-                      xmin = 0.93, xmax = 1.03,
-                      ymax = 1.1, ymin = 1.1 - logo_height) +
-    theme(axis.line = element_blank(),
-          axis.ticks = element_blank(),
-          panel.grid = element_blank(),
-          plot.background = element_rect(fill = "#EAEAEB", colour = NA),
-          panel.background = element_rect(fill = "#EAEAEB", colour = NA), 
-          panel.spacing = unit(2, "lines"),
-          plot.margin = unit(c(1, 0.5, 0, 0.5), "lines"))
+    if (metric == 4) { 
+      
+      # in this case due to large y axis labels the annotation needs to be further left
+      
+      header <- ggplot(mapping = aes(0:1, 0:1)) +
+        scale_x_continuous(limits = c(0, 1)) +
+        scale_y_continuous(limits = c(1 - scale_y, 1)) +
+        theme_void() +
+        coord_cartesian(clip = "off") +
+        annotation_custom(textGrob(label = glue("{obsname_temp}'s patches"), 
+                                   gp = gpar(fontsize = 16), 
+                                   just = c("left", "bottom")),
+                          xmax = -0.3, 
+                          ymax = text1_ymax, ymin = text1_ymin) +
+        annotation_custom(textGrob(label = glue("Species: {spec_temp}"), 
+                                   just = c("left", "bottom"),
+                                   # vjust = 0.5,
+                                   gp = gpar(fontsize = 12)),
+                          xmax = -0.3,
+                          ymax = text2_ymax, ymin = text2_ymin) +
+        annotation_custom(textGrob(label = glue("{data_annotation}"), 
+                                   just = c("left", "bottom"), 
+                                   # vjust = 1, 
+                                   gp = gpar(col = "#ADADAD", 
+                                             cex = 1.0, fontsize = 6,
+                                             fontface = "italic")),
+                          xmax = -0.3, 
+                          ymax = text3_ymax, ymin = text3_ymin) +
+        annotation_custom(textGrob(label = glue("{data_caption}"), 
+                                   just = c("left", "bottom"), 
+                                   # vjust = 1, 
+                                   gp = gpar(col = "#ADADAD", 
+                                             cex = 1.0, fontsize = 6,
+                                             fontface = "italic")),
+                          xmax = -0.3, 
+                          ymax = text4_ymax, ymin = text4_ymin) +
+        annotation_raster(logo1, 
+                          xmin = 0.72, xmax = 0.92,
+                          ymax = 1.1, ymin = 1.1 - logo_height) +
+        annotation_raster(logo2, 
+                          xmin = 0.93, xmax = 1.03,
+                          ymax = 1.1, ymin = 1.1 - logo_height) +
+        theme(axis.line = element_blank(),
+              axis.ticks = element_blank(),
+              panel.grid = element_blank(),
+              plot.background = element_rect(fill = "#EAEAEB", colour = NA),
+              panel.background = element_rect(fill = "#EAEAEB", colour = NA), 
+              panel.spacing = unit(2, "lines"),
+              plot.margin = unit(c(1, 0.5, 0, 0.5), "lines"))
+      
+    } else {
+      header <- ggplot(mapping = aes(0:1, 0:1)) +
+        scale_x_continuous(limits = c(0, 1)) +
+        scale_y_continuous(limits = c(1 - scale_y, 1)) +
+        theme_void() +
+        coord_cartesian(clip = "off") +
+        annotation_custom(textGrob(label = glue("{obsname_temp}'s patches"), 
+                                   gp = gpar(fontsize = 16), 
+                                   just = c("left", "bottom")),
+                          xmax = -0.2, 
+                          ymax = text1_ymax, ymin = text1_ymin) +
+        annotation_custom(textGrob(label = glue("Species: {spec_temp}"), 
+                                   just = c("left", "bottom"),
+                                   # vjust = 0.5,
+                                   gp = gpar(fontsize = 12)),
+                          xmax = -0.2,
+                          ymax = text2_ymax, ymin = text2_ymin) +
+        annotation_custom(textGrob(label = glue("{data_annotation}"), 
+                                   just = c("left", "bottom"), 
+                                   # vjust = 1, 
+                                   gp = gpar(col = "#ADADAD", 
+                                             cex = 1.0, fontsize = 6,
+                                             fontface = "italic")),
+                          xmax = -0.2, 
+                          ymax = text3_ymax, ymin = text3_ymin) +
+        annotation_custom(textGrob(label = glue("{data_caption}"), 
+                                   just = c("left", "bottom"), 
+                                   # vjust = 1, 
+                                   gp = gpar(col = "#ADADAD", 
+                                             cex = 1.0, fontsize = 6,
+                                             fontface = "italic")),
+                          xmax = -0.2, 
+                          ymax = text4_ymax, ymin = text4_ymin) +
+        annotation_raster(logo1, 
+                          xmin = 0.72, xmax = 0.92,
+                          ymax = 1.1, ymin = 1.1 - logo_height) +
+        annotation_raster(logo2, 
+                          xmin = 0.93, xmax = 1.03,
+                          ymax = 1.1, ymin = 1.1 - logo_height) +
+        theme(axis.line = element_blank(),
+              axis.ticks = element_blank(),
+              panel.grid = element_blank(),
+              plot.background = element_rect(fill = "#EAEAEB", colour = NA),
+              panel.background = element_rect(fill = "#EAEAEB", colour = NA), 
+              panel.spacing = unit(2, "lines"),
+              plot.margin = unit(c(1, 0.5, 0, 0.5), "lines"))
+    }
   
   } else {
     

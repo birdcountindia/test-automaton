@@ -119,6 +119,7 @@ samplesizes <- data_pmp %>%
 
 ##### filtering species per patch per observer for analyses ####
 
+
 # list of species commonly observed in patches to be removed
 remove_common <- data_pmp %>% 
   group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID, SEASON) %>% 
@@ -132,6 +133,8 @@ remove_common <- data_pmp %>%
             REMOVE = if_else(TOT.SEASONS > 2 & sum(NINETY) == TOT.SEASONS, 1, 0)) %>% 
   ungroup() %>% 
   filter(REMOVE == 1)
+
+
 
 # filtering 20 species per observer across all their patches (removing very common spp.)
 filt_spec_RC <- data_pmp %>% 
@@ -156,7 +159,6 @@ filt_spec_RC <- data_pmp %>%
   distinct(OBSERVER.ID, FULL.NAME, COMMON.NAME, TOT.OBS) %>% 
   ungroup()
 
-  
 # species must be present in every month per season, in at least two seasons (removing very common spp.)
 filt_specloc_RC <- data_pmp %>%
   group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID, COMMON.NAME, SEASON) %>%
@@ -172,6 +174,8 @@ filt_specloc_RC <- data_pmp %>%
   anti_join(remove_common) %>%
   distinct(OBSERVER.ID, FULL.NAME, LOCALITY.ID, COMMON.NAME) %>% 
   ungroup()
+
+
 
 # filtering 20 species per observer across all their patches (w/o removing very common spp.)
 filt_spec <- data_pmp %>% 
@@ -211,6 +215,7 @@ filt_specloc <- data_pmp %>%
   ungroup()
   
 
+
 # location (patch) needs data in every month per season, in at least two seasons
 filt_loc <- data_pmp %>% 
   group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID, SEASON) %>% 
@@ -221,6 +226,45 @@ filt_loc <- data_pmp %>%
   # at least 2 seasons
   filter(N.SEASONS >= 2) %>% 
   distinct(OBSERVER.ID, FULL.NAME, LOCALITY.ID) %>% 
+  ungroup()
+
+
+
+# breeding code classification
+breedingcodes <- data.frame(
+  BREEDING.CODE = c("S", 
+                    "S7", "M", "T", "C", "N", "A", "B",
+                    "PE", "CN", "NB", "DD", "UN", "ON", "NE", "NY", "FL", "CF", "FY", "FS"),
+  BREEDING.TYPE = c("Possible", 
+                    rep("Probable", 7), 
+                    rep("Confirmed", 12)),
+  BREEDING.ORDER = c(1:20),
+  LABEL = c("Singing\nbird",
+            #
+            "Singing\n7+ days", "Multiple\nsinging\nbirds", "Territorial\nbehaviour",
+            "Courtship,\ndisplay or\ncopulation", "Visiting\nprobable\nnest site",
+            "Agitated\nbehaviour", "Woodpecker/wren\nnest building", 
+            #
+            "Physiological\nevidence", "Carrying\nnesting\nmaterial", "Nest\nbuilding", 
+            "Distraction\ndisplay", "Used nest", "Occupied\nnest", "Nest with\neggs",
+            "Nest with\nyoung", "Recently\nfledged\nyoung", "Carrying\nfood", 
+            "Feeding\nyoung", "Carrying\nfoecal sac"))
+
+# species for which breeding codes patterns should be explored
+# (must be present in every month per season, in at least two seasons)
+filt_breedspecloc <- data_pmp %>%
+  # trimming whitespace in breeding code values
+  mutate(BREEDING.CODE = str_trim(BREEDING.CODE)) %>% 
+  left_join(breedingcodes) %>% 
+  # keeping only observations with useful breeding codes
+  filter(!is.na(BREEDING.CODE) & (BREEDING.CODE %in% breedingcodes$BREEDING.CODE)) %>% 
+  group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID, COMMON.NAME) %>%
+  summarise(N.SEASONS = n_distinct(SEASON),
+            N.BCODES = n_distinct(BREEDING.CODE),
+            N.BTYPES = n_distinct(BREEDING.TYPE)) %>%
+  # at least 2 seasons and 3 unique breeding codes
+  filter(N.SEASONS >= 2 & N.BCODES >= 3) %>%
+  distinct(OBSERVER.ID, FULL.NAME, LOCALITY.ID, COMMON.NAME) %>% 
   ungroup()
 
 
@@ -595,3 +639,119 @@ for (obs in 1:n_distinct(data3$OBSERVER.ID)) {
 
 
 ##### change in breeding codes ####
+
+data4 <- data_pmp %>% 
+  # trimming whitespace in breeding code values
+  mutate(BREEDING.CODE = str_trim(BREEDING.CODE),
+         OBSERVATION.DATE = as_date(OBSERVATION.DATE)) %>% 
+  right_join(filt_breedspecloc) %>% 
+  group_by(OBSERVER.ID, FULL.NAME, LOCALITY, COMMON.NAME, SEASON) %>% 
+  distinct(OBSERVATION.DATE, DAY.M, MONTH, BREEDING.CODE) %>% 
+  ungroup() %>% 
+  # keeping only observations with useful breeding codes
+  filter(!is.na(BREEDING.CODE) & (BREEDING.CODE %in% breedingcodes$BREEDING.CODE)) %>% 
+  left_join(breedingcodes) %>% 
+  mutate(
+    BREEDING.CODE = factor(BREEDING.CODE, levels = c("S", 
+                                                     "S7", "M", "T", "C", "N", "A", "B",
+                                                     "PE", "CN", "NB", "DD", "UN", "ON", "NE", "NY", "FL", "CF", "FY", "FS")),
+    BREEDING.TYPE = factor(BREEDING.TYPE, levels = c("Possible", "Probable", "Confirmed"))
+    ) %>% 
+  # summarising by month (max breeding code in a month)
+  group_by(OBSERVER.ID, FULL.NAME, LOCALITY, COMMON.NAME, SEASON, MONTH) %>% 
+  arrange(desc(BREEDING.ORDER)) %>% 
+  slice(1) %>% 
+  ungroup()
+
+timeline <- data.frame(OBSERVATION.DATE = seq(pmpstartdate, cur_date, by = "month")) %>% 
+  mutate(MONTH = month(OBSERVATION.DATE),
+         MONTH.LABEL = month(OBSERVATION.DATE, label = T),
+         YEAR = year(OBSERVATION.DATE),
+         LABEL = glue("{MONTH.LABEL} '{str_trunc(YEAR, 2, 'left', ellipsis = '')}"))
+
+breedinglabels <- breedingcodes %>% 
+  filter(BREEDING.ORDER %in% c(1, 5, 10, 14, 17, 20))
+
+breedingcolours <- breedingcodes %>% 
+  # legend colours
+  mutate(COLOURS = case_when(BREEDING.TYPE == "Possible" ~ "#F8CDB5", 
+                             BREEDING.TYPE == "Probable" ~ "#F39968", 
+                             BREEDING.TYPE == "Confirmed" ~ "#EB661E"))
+
+for (obs in 1:n_distinct(data4$OBSERVER.ID)) {
+  
+  obs_temp <- unique(data4$OBSERVER.ID)[obs]
+  obsname_temp <- data4 %>% distinct(OBSERVER.ID, FULL.NAME) %>% 
+    filter(OBSERVER.ID %in% obs_temp) %>% distinct(FULL.NAME) %>% as.character()
+  data_temp1 <- filter(data4, OBSERVER.ID == obs_temp)
+  
+  
+  for (spec in 1:n_distinct(data_temp1$COMMON.NAME)) {
+    
+    print(glue("Loop progress: observer {obs}, species {spec}"))
+    
+    spec_temp <- unique(data_temp1$COMMON.NAME)[spec]
+    
+    data_temp2 <- filter(data_temp1, COMMON.NAME == spec_temp) %>% 
+      ungroup() %>% 
+      # legend colours
+      left_join(breedingcolours)
+    
+    
+    path_temp <- glue("pmp-yearly-patterns/{rel_year}/{obsname_temp}/Breeding codes/")
+    file_temp <- glue("{rel_year}_BC_{str_replace(spec_temp, ' ', '-')}.png")
+    
+    
+    # setting up dimensions and header for the figure
+    gen_fig_setup(data_temp2, metric = 4)
+    
+    
+    plot_temp <- (header) / 
+      (ggplot(data_temp2, 
+              aes(OBSERVATION.DATE, BREEDING.ORDER, colour = BREEDING.TYPE)) +
+         facet_wrap(~ LOCALITY, ncol = 1) +
+         scale_y_continuous(limits = c(0, 21),
+                            breaks = breedinglabels$BREEDING.ORDER,
+                            labels = breedinglabels$LABEL) +
+         scale_x_continuous(limits = c(pmpstartdate, cur_date),
+                            breaks = timeline$OBSERVATION.DATE,
+                            labels = timeline$LABEL) +
+         geom_line(aes(colour = NA), linetype = 1, colour = "#C2C2C2") +
+         geom_point(size = 3, position = position_dodge(width = 0.4)) +
+         scale_colour_manual(values = unique(data_temp2$COLOURS)) +
+         labs(x = "Months", y = "Breeding behaviour",
+              colour = "Breeding behaviour type") +
+         theme(axis.line = element_blank(),
+               axis.ticks = element_blank(),
+               axis.text = element_text(size = 6),
+               axis.text.y = element_text(size = 5),
+               axis.title = element_text(size = 10),
+               panel.grid = element_blank(),
+               panel.grid.major.y = element_line(linetype = 3, colour = "#C2C2C2"),
+               strip.text = element_markdown(size = 7, lineheight = 1.2),
+               strip.background = element_rect(fill = "#D6D6D6", colour = NA),
+               plot.background = element_rect(fill = "#EAEAEB", colour = NA),
+               panel.background = element_rect(fill = "#EAEAEB", colour = NA),
+               legend.position = "bottom",
+               legend.box.margin = margin(0, 0, 0, 0, "in"),
+               legend.margin = margin(0, 0, 0, 0, "in"),
+               legend.background = element_blank(),
+               legend.text = element_text(size = 6),
+               legend.title = element_text(size = 8),
+               # no fill around legend points
+               legend.key = element_blank(),
+               panel.spacing = unit(2, "lines"),
+               plot.margin = unit(c(1, 0.5, 1, 0.5), "lines"))) +
+      plot_layout(heights = c(patch_a, patch_b)) &
+      theme(plot.background = element_rect(fill = "#EAEAEB", colour = NA),
+            panel.background = element_rect(fill = "#EAEAEB", colour = NA))
+    
+    if (!dir.exists(path_temp)) (dir.create(path_temp, recursive = T))
+    
+    ggsave(filename = glue("{path_temp}{file_temp}"), 
+           plot = plot_temp, 
+           dpi = 300, width = 6, height = fig_inches, units = "in")
+    
+  }
+  
+}
