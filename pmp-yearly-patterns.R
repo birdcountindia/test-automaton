@@ -4,7 +4,7 @@ library(glue)
 library(magick)
 library(grid)
 library(patchwork)
-library(ggtext)
+library(ggtext) # to enable markdown in ggplot text (here needed for facet strip text)
 
 source("pmp-functions.R")
 
@@ -109,6 +109,13 @@ data_pmp <- data_pmp %>%
   mutate(FULL.NAME = case_when(FULL.NAME == "Lakshmikant Neve" ~ 
                                  "Lakshmikant-Loukika Neve",
                                TRUE ~ FULL.NAME))
+
+
+# getting sample size data for other metrics 
+samplesizes <- data_pmp %>% 
+  group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID, LOCALITY, SEASON) %>% 
+  summarise(TOT.LISTS = n_distinct(SAMPLING.EVENT.IDENTIFIER))
+
 
 ##### filtering species per patch per observer for analyses ####
 
@@ -306,7 +313,7 @@ data1 <- data_pmp %>%
                        REP.FREQ = NA_integer_,
                        TOT.LISTS = 0)) %>% 
   ungroup()
-  
+
 
 for (obs in 1:n_distinct(data1$OBSERVER.ID)) {
 
@@ -325,7 +332,8 @@ for (obs in 1:n_distinct(data1$OBSERVER.ID)) {
     data_temp2 <- filter(data_temp1, COMMON.NAME == spec_temp) %>% 
       group_by(LOCALITY) %>% 
       # for sample sizes
-      mutate(LOCALITY.N = glue("{LOCALITY}<br>N<sub>Su</sub> = {TOT.LISTS[1]}, N<sub>Au</sub> = {TOT.LISTS[2]}, N<sub>Wi</sub> = {TOT.LISTS[3]}, N<sub>Sp</sub> = {TOT.LISTS[4]}"))
+      mutate(LOCALITY.N = glue("<b>{LOCALITY}</b><br>N<sub>Su</sub> = {TOT.LISTS[1]}, N<sub>Au</sub> = {TOT.LISTS[2]}, N<sub>Wi</sub> = {TOT.LISTS[3]}, N<sub>Sp</sub> = {TOT.LISTS[4]}")) %>% 
+      ungroup()
 
 
     path_temp <- glue("pmp-yearly-patterns/{rel_year}/{obsname_temp}/Reporting frequency of species/")
@@ -353,7 +361,7 @@ for (obs in 1:n_distinct(data1$OBSERVER.ID)) {
             axis.title = element_text(size = 10),
             panel.grid = element_blank(),
             panel.grid.major.y = element_line(linetype = 3, colour = "#C2C2C2"),
-            strip.text = element_markdown(size = 8, lineheight = 1.2),
+            strip.text = element_markdown(size = 7, lineheight = 1.2),
             strip.background = element_rect(fill = "#D6D6D6", colour = NA),
             plot.background = element_rect(fill = "#EAEAEB", colour = NA),
             panel.background = element_rect(fill = "#EAEAEB", colour = NA),
@@ -392,7 +400,14 @@ data2 <- data_pmp %>%
             CI.L = NO.SP - 1.96*SE,
             CI.U = NO.SP + 1.96*SE) %>% 
   ungroup() %>% 
-  right_join(filt_loc)
+  right_join(filt_loc) %>% 
+  left_join(samplesizes) %>% 
+  group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID, LOCALITY) %>% 
+  complete(SEASON = unique(data_pmp$SEASON), 
+           fill = list(TOT.LISTS = 0,
+                       CI.L = 0,
+                       CI.U = 0)) %>% 
+  ungroup()
 
 
 for (obs in 1:n_distinct(data2$OBSERVER.ID)) {
@@ -400,7 +415,11 @@ for (obs in 1:n_distinct(data2$OBSERVER.ID)) {
   obs_temp <- unique(data2$OBSERVER.ID)[obs]
   obsname_temp <- data2 %>% distinct(OBSERVER.ID, FULL.NAME) %>% 
     filter(OBSERVER.ID %in% obs_temp) %>% distinct(FULL.NAME) %>% as.character()
-  data_temp1 <- filter(data2, OBSERVER.ID == obs_temp)
+  data_temp1 <- filter(data2, OBSERVER.ID == obs_temp) %>% 
+    group_by(LOCALITY) %>% 
+    # for sample sizes
+    mutate(LOCALITY.N = glue("<b>{LOCALITY}</b><br>N<sub>Su</sub> = {TOT.LISTS[1]}, N<sub>Au</sub> = {TOT.LISTS[2]}, N<sub>Wi</sub> = {TOT.LISTS[3]}, N<sub>Sp</sub> = {TOT.LISTS[4]}")) %>% 
+    ungroup()
   
   print(glue("Loop progress: observer {obs}"))
   
@@ -415,7 +434,7 @@ for (obs in 1:n_distinct(data2$OBSERVER.ID)) {
   plot_temp <- (header) / 
     (ggplot(data_temp1, 
             aes(as.numeric(SEASON), NO.SP)) +
-       facet_wrap(~ LOCALITY, ncol = 1, scales = "free") +
+       facet_wrap(~ LOCALITY.N, ncol = 1, scales = "free") +
        geom_ribbon(aes(ymin = CI.L, ymax = CI.U),
                    colour = NA, fill = "#ADADAD", alpha = 0.2) +
        geom_point(size = 3, colour = "black") +
@@ -431,7 +450,7 @@ for (obs in 1:n_distinct(data2$OBSERVER.ID)) {
              axis.title = element_text(size = 10),
              panel.grid = element_blank(),
              panel.grid.major.y = element_line(linetype = 3, colour = "#C2C2C2"),
-             strip.text = element_text(size = 10),
+             strip.text = element_markdown(size = 7, lineheight = 1.2),
              strip.background = element_rect(fill = "#D6D6D6", colour = NA),
              plot.background = element_rect(fill = "#EAEAEB", colour = NA),
              panel.background = element_rect(fill = "#EAEAEB", colour = NA),
@@ -456,24 +475,51 @@ for (obs in 1:n_distinct(data2$OBSERVER.ID)) {
 ##### change in flock sizes ####
 
 flock_spec <- c("Common Myna", "Red-vented Bulbul", "Rose-ringed Parakeet", "Black Kite", 
-                "Brahminy Kite", "Cattle Egret", "Indian White-eye", "House Crow")
+                "Brahminy Kite", "Cattle Egret", "Indian White-eye", "House Crow",
+                "Green Bee-Eater")
+
+temp1 <- data_pmp %>% 
+  group_by(OBSERVER.ID, LOCALITY.ID, SEASON) %>% 
+  summarise(TOT.LISTS = n_distinct(SAMPLING.EVENT.IDENTIFIER)) 
+  
+temp2 <- data_pmp %>% 
+  distinct(OBSERVER.ID, FULL.NAME, LOCALITY.ID, LOCALITY, SEASON, COMMON.NAME) %>% 
+  group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID, LOCALITY) %>% 
+  complete(nesting(SEASON), COMMON.NAME) %>% 
+  left_join(temp1) %>% 
+  group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID, LOCALITY, COMMON.NAME) %>% 
+  complete(SEASON = unique(data_pmp$SEASON), 
+           fill = list(TOT.LISTS = 0)) 
 
 data3 <- data_pmp %>% 
+  right_join(temp2) %>% 
   right_join(filt_specloc) %>% 
   filter(COMMON.NAME %in% flock_spec) %>% 
-  # no need to complete per list because only interested in flock when present
-  distinct(OBSERVER.ID, FULL.NAME, LOCALITY, LOCALITY.ID, 
-           SEASON, SAMPLING.EVENT.IDENTIFIER, COMMON.NAME, OBSERVATION.COUNT) %>% 
-  arrange(FULL.NAME, LOCALITY, COMMON.NAME) %>% 
-  group_by(OBSERVER.ID, FULL.NAME, LOCALITY, LOCALITY.ID, SEASON, COMMON.NAME) %>% 
+  arrange(OBSERVER.ID, LOCALITY.ID, SEASON, SAMPLING.EVENT.IDENTIFIER) %>% 
+  group_by(OBSERVER.ID, FULL.NAME, LOCALITY, COMMON.NAME, SEASON, TOT.LISTS) %>% 
   summarise(COUNT = boot_conf(OBSERVATION.COUNT)) %>% 
-  group_by(OBSERVER.ID, FULL.NAME, LOCALITY, LOCALITY.ID, SEASON, COMMON.NAME) %>% 
+  group_by(OBSERVER.ID, FULL.NAME, LOCALITY, COMMON.NAME, SEASON, TOT.LISTS) %>% 
   summarise(SE = sd(COUNT),
             COUNT = mean(COUNT),
             CI.L = COUNT - 1.96*SE,
             CI.U = COUNT + 1.96*SE) %>% 
+  mutate(COUNT = case_when(TOT.LISTS != 0 & is.na(COUNT) ~ 0,
+                           # TOT.LISTS == 0 & is.na(COUNT) ~ NA_integer_, # already NA
+                           TOT.LISTS != 0 & !is.na(COUNT) ~ COUNT),
+         CI.L = case_when(TOT.LISTS != 0 & is.na(CI.L) ~ 0,
+                           TOT.LISTS != 0 & !is.na(CI.L) ~ CI.L),
+         CI.U = case_when(TOT.LISTS != 0 & is.na(CI.U) ~ 0,
+                           TOT.LISTS != 0 & !is.na(CI.U) ~ CI.U)) %>% 
   ungroup()
-
+# 
+#   group_by(OBSERVER.ID, FULL.NAME, LOCALITY, COMMON.NAME) %>% 
+#   complete(SEASON = unique(data_pmp$SEASON), 
+#            fill = list(COUNT = NA_integer_,
+#                        CI.L = NA_integer_,
+#                        CI.U = NA_integer_,
+#                        SE = NA_integer_,
+#                        TOT.LISTS = 0)) %>% 
+#   ungroup()
 
 
 for (obs in 1:n_distinct(data3$OBSERVER.ID)) {
@@ -488,7 +534,12 @@ for (obs in 1:n_distinct(data3$OBSERVER.ID)) {
     print(glue("Loop progress: observer {obs}, species {spec}"))
     
     spec_temp <- unique(data_temp1$COMMON.NAME)[spec]
-    data_temp2 <- filter(data_temp1, COMMON.NAME == spec_temp)
+    data_temp2 <- filter(data_temp1, COMMON.NAME == spec_temp) %>% 
+      group_by(LOCALITY) %>% 
+      # for sample sizes
+      mutate(LOCALITY.N = glue("<b>{LOCALITY}</b><br>N<sub>Su</sub> = {TOT.LISTS[1]}, N<sub>Au</sub> = {TOT.LISTS[2]}, N<sub>Wi</sub> = {TOT.LISTS[3]}, N<sub>Sp</sub> = {TOT.LISTS[4]}")) %>% 
+      ungroup()
+    
     
     path_temp <- glue("pmp-yearly-patterns/{rel_year}/{obsname_temp}/Species counts/")
     file_temp <- glue("{rel_year}_SC_{str_replace(spec_temp, ' ', '-')}.png")
@@ -501,13 +552,13 @@ for (obs in 1:n_distinct(data3$OBSERVER.ID)) {
       (ggplot(data_temp2, 
               aes(as.numeric(SEASON), COUNT, 
                   colour = COMMON.NAME, group = COMMON.NAME)) +
-         facet_wrap(~ LOCALITY, ncol = 1, scales = "free") +
+         facet_wrap(~ LOCALITY.N, ncol = 1, scales = "free") +
          geom_ribbon(aes(ymin = CI.L, ymax = CI.U),
                      colour = NA, fill = "#ADADAD", alpha = 0.2) +
          geom_point(size = 3, colour = "black") +
          geom_line(size = 1, colour = "black") +
-         scale_x_continuous(labels = unique(data_temp2$SEASON), 
-                            breaks = unique(as.numeric(data_temp2$SEASON)),
+         scale_x_continuous(labels = unique(data_temp1$SEASON), 
+                            breaks = unique(as.numeric(data_temp1$SEASON)),
                             limits = c(1, 4)) +
          # scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
          labs( x = "Season", y = "Count or flock size") +
@@ -517,7 +568,7 @@ for (obs in 1:n_distinct(data3$OBSERVER.ID)) {
                axis.title = element_text(size = 10),
                panel.grid = element_blank(),
                panel.grid.major.y = element_line(linetype = 3, colour = "#C2C2C2"),
-               strip.text = element_text(size = 10),
+               strip.text = element_markdown(size = 7, lineheight = 1.2),
                strip.background = element_rect(fill = "#D6D6D6", colour = NA),
                plot.background = element_rect(fill = "#EAEAEB", colour = NA),
                panel.background = element_rect(fill = "#EAEAEB", colour = NA),
