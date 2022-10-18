@@ -5,6 +5,7 @@ library(tidyverse)
 library(lubridate)
 library(magrittr)
 library(glue)
+library(writexl) # to save results
 
 userspath <- "../ebird-datasets/EBD/ebd_users_relMay-2022.txt" # update when latest available
 
@@ -22,7 +23,7 @@ latestusersrel <- str_extract(userspath, "(?<=rel)[^.]*(?=.|$)")
 groupaccspath <- glue("../ebird-datasets/group-accounts/ebd_users_GA_rel{latestusersrel}.csv")
 
 mcdatapath <-  glue("../ebird-datasets/EBD/ebd_IN_rel{rel_month_lab}-{rel_year}_{toupper(rel_month_lab)}.RData")
-mcresultspath <- glue("{rel_year}/MC_results_{rel_year}_{str_pad(rel_month_num, width=2, pad='0')}.csv")
+mcresultspath <- glue("{rel_year}/MC_results_{rel_year}_{str_pad(rel_month_num, width=2, pad='0')}.xlsx")
 
 ###### loading data ####
 
@@ -64,6 +65,15 @@ tot_mlists <- data_mc %>%
   ungroup() %$%
   n_distinct(GROUP.ID)
 
+stats <- data.frame(A = tot_bdr, 
+                    B = tot_obs,
+                    C = tot_lists,
+                    D = tot_specs,
+                    E = tot_clists,
+                    F = tot_mlists) %>% 
+  magrittr::set_colnames(c("eBirders", "observations", "lists (all types)", "species",
+                                    "complete lists", "lists with media")) %>% 
+  pivot_longer(everything(), names_to = "Number of", values_to = "Values")
 
 ###### monthly challenge winners/results ####
 
@@ -91,19 +101,24 @@ data2 <- data0 %>%
   filter(S.LISTS >= 6)
 
 
-data3 <- data1 %>% 
+results <- data1 %>% 
   inner_join(data2) %>% 
   left_join(eBird_users) %>% 
   anti_join(filtGA)
 
 
-write_csv(data3, mcresultspath, na = "")
-
-
 
 # random selection 
-a <- read_csv(mcresultspath) %>% 
+a <- results %>% 
   filter(FULL.NAME != "MetalClicks Ajay Ashok") # removes NAs too
 set.seed(20)
 winner <- a %>% slice_sample(n = 1) %>% select(FULL.NAME)
 glue("Monthly challenge winner is {winner}")
+
+
+###### saving results into excel sheet ####
+
+write_xlsx(x = list("Monthly stats" = stats, 
+                    "Challenge results" = results, 
+                    "Challenge winner" = winner),
+           path = mcresultspath)
