@@ -32,6 +32,9 @@ gen_fig_setup <- function(data, metric) {
   
   n_loc <- n_distinct(data$LOCALITY) # this will be basis for dimensions
   
+  # to decide whether to use singular or plural in figure headings (XY's patch(es))
+  word_patch <- ifelse(n_loc == 1, "patch", "patches")
+  
   scale_y <- 0.45 # y-axis scale of header (0.55 to 1)
   logo_inches <- 1.2/(612/189) # height should be (fixed width in inches / asp.ratio)
   
@@ -85,7 +88,7 @@ gen_fig_setup <- function(data, metric) {
         scale_y_continuous(limits = c(1 - scale_y, 1)) +
         theme_void() +
         coord_cartesian(clip = "off") +
-        annotation_custom(textGrob(label = glue("{obsname_temp}'s patches"), 
+        annotation_custom(textGrob(label = glue("{obsname_temp}'s {word_patch}"), 
                                    gp = gpar(fontsize = 16), 
                                    just = c("left", "bottom")),
                           xmax = -0.3, 
@@ -132,7 +135,7 @@ gen_fig_setup <- function(data, metric) {
         scale_y_continuous(limits = c(1 - scale_y, 1)) +
         theme_void() +
         coord_cartesian(clip = "off") +
-        annotation_custom(textGrob(label = glue("{obsname_temp}'s patches"), 
+        annotation_custom(textGrob(label = glue("{obsname_temp}'s {word_patch}"), 
                                    gp = gpar(fontsize = 16), 
                                    just = c("left", "bottom")),
                           xmax = -0.2, 
@@ -181,7 +184,7 @@ gen_fig_setup <- function(data, metric) {
       scale_y_continuous(limits = c(1 - scale_y, 1)) +
       theme_void() +
       coord_cartesian(clip = "off") +
-      annotation_custom(textGrob(label = glue("{obsname_temp}'s patches"), 
+      annotation_custom(textGrob(label = glue("{obsname_temp}'s {word_patch}"), 
                                  gp = gpar(fontsize = 16), 
                                  just = c("left", "bottom")),
                         xmax = -0.2, 
