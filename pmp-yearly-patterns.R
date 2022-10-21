@@ -520,9 +520,9 @@ for (obs in 1:n_distinct(data2$OBSERVER.ID)) {
   
 }
 
-##### change in flock sizes ####
+##### change in total counts ####
 
-flock_spec <- c("Common Myna", "Red-vented Bulbul", "Rose-ringed Parakeet", "Black Kite", 
+agg_spec <- c("Common Myna", "Red-vented Bulbul", "Rose-ringed Parakeet", "Black Kite", 
                 "Brahminy Kite", "Cattle Egret", "Indian White-eye", "House Crow",
                 "Green Bee-Eater")
 
@@ -542,7 +542,7 @@ temp2 <- data_pmp %>%
 data3 <- data_pmp %>% 
   right_join(temp2) %>% 
   right_join(filt_specloc) %>% 
-  filter(COMMON.NAME %in% flock_spec) %>% 
+  filter(COMMON.NAME %in% agg_spec) %>% 
   arrange(OBSERVER.ID, LOCALITY.ID, SEASON, SAMPLING.EVENT.IDENTIFIER) %>% 
   group_by(OBSERVER.ID, FULL.NAME, LOCALITY, COMMON.NAME, SEASON, TOT.LISTS) %>% 
   summarise(COUNT = boot_conf(OBSERVATION.COUNT)) %>% 
@@ -609,7 +609,7 @@ for (obs in 1:n_distinct(data3$OBSERVER.ID)) {
                             breaks = unique(as.numeric(data_temp1$SEASON)),
                             limits = c(1, 4)) +
          # scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
-         labs( x = "Season", y = "Count or flock size") +
+         labs( x = "Season", y = "Total count") +
          theme(axis.line = element_blank(),
                axis.ticks = element_blank(),
                axis.text = element_text(size = 8),
