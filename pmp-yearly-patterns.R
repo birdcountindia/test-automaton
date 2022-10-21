@@ -317,14 +317,14 @@ map_pmp <- data_pmp %>%
                     xmin = 66, xmax = 69,
                     ymin = 5.5, ymax = 6.5) +
   annotation_raster(logo1, 
-                    ymin = 41, ymax = 43,
+                    ymin = 40, ymax = 42,
                     xmin = 88.5, xmax = 94.1) +
   annotation_raster(logo2, 
-                    ymin = 41, ymax = 43,
+                    ymin = 40, ymax = 42,
                     xmin = 95.1, xmax = 98.6)
 
 ggsave(glue("pmp-yearly-patterns/{rel_year}/pmp-map_{rel_year}.png"), map_pmp, 
-       dpi = 300, width = 6, height = 6, units = "in")
+       dpi = 300, width = 6, height = 7, units = "in")
 
 
 ##### change in frequency ####
