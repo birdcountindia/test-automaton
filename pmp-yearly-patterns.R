@@ -232,14 +232,17 @@ filt_loc <- data_pmp %>%
 
 # breeding code classification
 breedingcodes <- data.frame(
-  BREEDING.CODE = c("S", 
+  BREEDING.CODE = c("NA",
+                    "S", 
                     "S7", "M", "T", "C", "N", "A", "B",
                     "PE", "CN", "NB", "DD", "UN", "ON", "NE", "NY", "FL", "CF", "FY", "FS"),
-  BREEDING.TYPE = c("Possible", 
+  BREEDING.TYPE = c("No evidence",
+                    "Possible", 
                     rep("Probable", 7), 
                     rep("Confirmed", 12)),
-  BREEDING.ORDER = c(1:20),
-  LABEL = c("Singing\nbird",
+  BREEDING.ORDER = c(1:21),
+  LABEL = c("No evidence of breeding",
+            "Singing\nbird",
             #
             "Singing\n7+ days", "Multiple\nsinging\nbirds", "Territorial\nbehaviour",
             "Courtship,\ndisplay or\ncopulation", "Visiting\nprobable\nnest site",
@@ -248,16 +251,26 @@ breedingcodes <- data.frame(
             "Physiological\nevidence", "Carrying\nnesting\nmaterial", "Nest\nbuilding", 
             "Distraction\ndisplay", "Used nest", "Occupied\nnest", "Nest with\neggs",
             "Nest with\nyoung", "Recently\nfledged\nyoung", "Carrying\nfood", 
-            "Feeding\nyoung", "Carrying\nfaecal sac"))
+            "Feeding\nyoung", "Carrying\nfaecal sac")) %>% 
+  mutate(
+    BREEDING.CODE = factor(BREEDING.CODE, levels = c("NA",
+                                                     "S", 
+                                                     "S7", "M", "T", "C", "N", "A", "B",
+                                                     "PE", "CN", "NB", "DD", "UN", "ON", "NE", "NY", "FL", "CF", "FY", "FS")),
+    BREEDING.TYPE = factor(BREEDING.TYPE, levels = c("No evidence", "Possible", 
+                                                     "Probable", "Confirmed"))
+  )
 
 # species for which breeding codes patterns should be explored
 # (must be present in every month per season, in at least two seasons)
 filt_breedspecloc <- data_pmp %>%
   # trimming whitespace in breeding code values
   mutate(BREEDING.CODE = str_trim(BREEDING.CODE)) %>% 
+  # if no breeding code, changing it to "no breeding evidence"
+  mutate(BREEDING.CODE = if_else(is.na(BREEDING.CODE), "NA", BREEDING.CODE)) %>% 
   left_join(breedingcodes) %>% 
   # keeping only observations with useful breeding codes
-  filter(!is.na(BREEDING.CODE) & (BREEDING.CODE %in% breedingcodes$BREEDING.CODE)) %>% 
+  filter(BREEDING.CODE %in% breedingcodes$BREEDING.CODE) %>% 
   group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID, COMMON.NAME) %>%
   summarise(N.SEASONS = n_distinct(SEASON),
             N.BCODES = n_distinct(BREEDING.CODE),
@@ -648,18 +661,22 @@ data4 <- data_pmp %>%
   # trimming whitespace in breeding code values
   mutate(BREEDING.CODE = str_trim(BREEDING.CODE),
          OBSERVATION.DATE = as_date(OBSERVATION.DATE)) %>% 
+  # if no breeding code, changing it to "No evidence"
+  mutate(BREEDING.CODE = if_else(is.na(BREEDING.CODE), "NA", BREEDING.CODE)) %>% 
   right_join(filt_breedspecloc) %>% 
   group_by(OBSERVER.ID, FULL.NAME, LOCALITY, COMMON.NAME, SEASON) %>% 
   distinct(OBSERVATION.DATE, DAY.M, MONTH, BREEDING.CODE) %>% 
   ungroup() %>% 
   # keeping only observations with useful breeding codes
-  filter(!is.na(BREEDING.CODE) & (BREEDING.CODE %in% breedingcodes$BREEDING.CODE)) %>% 
+  filter(BREEDING.CODE %in% breedingcodes$BREEDING.CODE) %>% 
   left_join(breedingcodes) %>% 
   mutate(
-    BREEDING.CODE = factor(BREEDING.CODE, levels = c("S", 
+    BREEDING.CODE = factor(BREEDING.CODE, levels = c("NA",
+                                                     "S", 
                                                      "S7", "M", "T", "C", "N", "A", "B",
                                                      "PE", "CN", "NB", "DD", "UN", "ON", "NE", "NY", "FL", "CF", "FY", "FS")),
-    BREEDING.TYPE = factor(BREEDING.TYPE, levels = c("Possible", "Probable", "Confirmed"))
+    BREEDING.TYPE = factor(BREEDING.TYPE, levels = c("No evidence", "Possible", 
+                                                     "Probable", "Confirmed"))
     ) %>% 
   # summarising by month (max breeding code in a month)
   group_by(OBSERVER.ID, FULL.NAME, LOCALITY, COMMON.NAME, SEASON, MONTH) %>% 
@@ -674,11 +691,12 @@ timeline <- data.frame(OBSERVATION.DATE = seq(pmpstartdate, cur_date, by = "mont
          LABEL = glue("{MONTH.LABEL} '{str_trunc(YEAR, 2, 'left', ellipsis = '')}"))
 
 breedinglabels <- breedingcodes %>% 
-  filter(BREEDING.ORDER %in% c(1, 5, 10, 14, 17, 20))
+  filter(BREEDING.ORDER %in% c(2, 6, 11, 15, 18, 21))
 
 breedingcolours <- breedingcodes %>% 
   # legend colours
-  mutate(COLOURS = case_when(BREEDING.TYPE == "Possible" ~ "#F8CDB5", 
+  mutate(COLOURS = case_when(BREEDING.TYPE == "No evidence" ~ "#D2C1B7", 
+                             BREEDING.TYPE == "Possible" ~ "#F8CDB5", 
                              BREEDING.TYPE == "Probable" ~ "#F39968", 
                              BREEDING.TYPE == "Confirmed" ~ "#EB661E"))
 
@@ -709,6 +727,8 @@ for (obs in 1:n_distinct(data4$OBSERVER.ID)) {
     # setting up dimensions and header for the figure
     gen_fig_setup(data_temp2, metric = 4)
     
+    # getting colours for legend in correct order (of the factor levels of BREEDING.TYPE)
+    colours_in_scale <- data_temp2 %>% arrange(BREEDING.TYPE) %>% distinct(COLOURS)
     
     plot_temp <- (header) / 
       (ggplot(data_temp2, 
@@ -722,7 +742,7 @@ for (obs in 1:n_distinct(data4$OBSERVER.ID)) {
                             labels = timeline$LABEL) +
          geom_line(aes(colour = NA), linetype = 1, colour = "#C2C2C2") +
          geom_point(size = 3, position = position_dodge(width = 0.4)) +
-         scale_colour_manual(values = unique(data_temp2$COLOURS)) +
+         scale_colour_manual(values = colours_in_scale$COLOURS) +
          labs(x = "Months", y = "Breeding behaviour",
               colour = "Breeding behaviour type") +
          theme(axis.line = element_blank(),
