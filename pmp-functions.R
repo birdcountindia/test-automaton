@@ -66,8 +66,8 @@ gen_fig_setup <- function(data, metric) {
   text4_ymin <- text4_ymax - text4_height
   
   data_caption <- case_when(
-    metric %in% 2:3 ~ glue("Points represent average values of {metric_name}; shaded regions are 95% confidence intervals."),
-    metric %in% c(1, 4) ~ glue("Points represent {metric_name}.")
+    metric %in% 2:3 ~ glue("Points represent average values of {metric_name}; shaded regions are 95% confidence intervals"),
+    metric %in% c(1, 4) ~ glue("Points represent {metric_name}")
     )
   
   
