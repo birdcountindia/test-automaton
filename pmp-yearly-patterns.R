@@ -248,7 +248,7 @@ breedingcodes <- data.frame(
             "Physiological\nevidence", "Carrying\nnesting\nmaterial", "Nest\nbuilding", 
             "Distraction\ndisplay", "Used nest", "Occupied\nnest", "Nest with\neggs",
             "Nest with\nyoung", "Recently\nfledged\nyoung", "Carrying\nfood", 
-            "Feeding\nyoung", "Carrying\nfoecal sac"))
+            "Feeding\nyoung", "Carrying\nfaecal sac"))
 
 # species for which breeding codes patterns should be explored
 # (must be present in every month per season, in at least two seasons)
