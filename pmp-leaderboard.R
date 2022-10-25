@@ -107,8 +107,8 @@ temp2 <- data1 %>%
 
 
 data2 <- data1 %>% 
-  filter(OBSERVER.ID %in% temp2$OBSERVER.ID,
-         str_detect(LOCALITY, "PMP")) %>% 
+  filter(OBSERVER.ID %in% temp2$OBSERVER.ID) %>% 
+  # filter(str_detect(LOCALITY, "PMP")) %>% # PMP in location name is not mandate
   # Lakshmikant/Loukika slash
   mutate(FULL.NAME = case_when(FULL.NAME == "Lakshmikant Neve" ~ 
                                  "Lakshmikant-Loukika Neve",
