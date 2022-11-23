@@ -23,9 +23,9 @@ data2 <- data0 %>%
 
 
 results <- data1 %>% 
-  inner_join(data2) %>% 
-  left_join(eBird_users) %>% 
-  anti_join(filtGA)
+  inner_join(data2, by = "OBSERVER.ID") %>% 
+  left_join(eBird_users, by = "OBSERVER.ID") %>% 
+  anti_join(filtGA, by = "OBSERVER.ID")
 
 
 
@@ -34,5 +34,5 @@ a <- results %>%
   filter(FULL.NAME != "MetalClicks Ajay Ashok") # removes NAs too
 set.seed(20)
 winner <- a %>% slice_sample(n = 1) %>% select(FULL.NAME)
-glue("Monthly challenge winner is {winner}")
+print(glue("Monthly challenge winner is {winner}"))
 
