@@ -27,10 +27,19 @@ mcresultspath <- glue("{rel_year}/MC_results_{rel_year}_{str_pad(rel_month_num, 
 # each monthly challenge script different---the only thing that changes each time master script run
 mcpath <- glue("{rel_year}/MC_{rel_year}_{str_pad(rel_month_num, width=2, pad='0')}.R")
 
+ycdatapath <-  glue("../ebird-datasets/EBD/ebd_IN_rel{rel_month_lab}-{rel_year}_{rel_year}.RData")
+ycresultspath <- glue("{rel_year}/YC_results_{rel_year}.xlsx")
+ycpath <- glue("{rel_year}/YC_{rel_year}.R")
+
 ###### loading data ####
 
 # month's data
 load(mcdatapath)
+
+# year's data for yearly challenge
+if (cur_month_num == 1) {
+  load(ycdatapath)
+}
 
 # user info
 eBird_users <- read.delim(userspath, sep = "\t", header = T, quote = "", 
@@ -87,3 +96,99 @@ write_xlsx(x = list("Monthly stats" = stats,
                     "Challenge results" = results, 
                     "Challenge winner" = winner),
            path = mcresultspath)
+
+
+###### yearly stats (if January) ####
+
+if (cur_month_num == 1 & exists("data_yc")) {
+  
+tot_bdr <- n_distinct(data_yc$OBSERVER.ID)
+tot_obs <- length(data_yc$COMMON.NAME)
+tot_lists <- n_distinct(data_yc$SAMPLING.EVENT.IDENTIFIER)
+
+tot_specs <- data_yc %>% 
+  filter(CATEGORY %in% c("species","issf")) %$% 
+  n_distinct(COMMON.NAME)
+# complete lists
+tot_clists <- data_yc %>% 
+  filter(ALL.SPECIES.REPORTED == 1) %$% 
+  n_distinct(SAMPLING.EVENT.IDENTIFIER)
+# unique lists with media
+tot_mlists <- data_yc %>% 
+  group_by(GROUP.ID) %>% 
+  filter(any(HAS.MEDIA == 1)) %>% 
+  ungroup() %$%
+  n_distinct(GROUP.ID)
+
+stats <- data.frame(A = tot_bdr, 
+                    B = tot_obs,
+                    C = tot_lists,
+                    D = tot_specs,
+                    E = tot_clists,
+                    F = tot_mlists) %>% 
+  magrittr::set_colnames(c("eBirders", "observations", "lists (all types)", "species",
+                           "complete lists", "lists with media")) %>% 
+  pivot_longer(everything(), names_to = "Number of", values_to = "Values")
+
+} else if (cur_month_num == 1 & !exists("data_yc")) {
+  
+  print("Yearly data needed but not loaded.")
+  
+}
+
+###### yearly challenge winners/results ####
+
+if (cur_month_num == 1 & exists("data_yc")) {
+  
+  source(ycpath)
+  
+  
+  ###### eBirder of the Year (eBirder of the Month >=8 months in 2021) ###
+  
+  # selection of final excludes the category winners
+  yc_cat_w <- bind_rows(prolific_w, consistent_w, adventuruous_w, 
+                        faithful_w, dedicated_w) 
+  
+  
+  eBoY_r <- list.files(path = glue("{rel_year}/"),
+                             pattern = "MC_results_",
+                             full.names = T) %>% 
+    lapply(read_csv) %>% 
+    bind_rows(.id = "MONTH") %>% 
+    group_by(OBSERVER.ID, FULL.NAME) %>% 
+    summarise(NO.MONTHS = n_distinct(MONTH)) %>% 
+    filter(NO.MONTHS >= 8) %>% 
+    arrange(desc(NO.MONTHS))
+  
+  # random selection 
+  a <- eBoY_r %>% 
+    # removing category winners
+    anti_join(yc_cat_w) %>% 
+    filter(FULL.NAME != "MetalClicks Ajay Ashok") # removes NAs too
+  set.seed(2022)
+  eBoY_w <- a %>% slice_sample(n = 1) %>% select(FULL.NAME)
+  print(glue("eBirder of the Year winner is {eBoY_w}"))
+
+  
+}
+
+###### saving results into excel sheet ####
+
+if (cur_month_num == 1 & exists("data_yc")) {
+  
+  write_xlsx(x = list("Yearly stats" = stats, 
+                      "Prolific results" = prolific_r, 
+                      "Prolific winner" = prolific_w, 
+                      "Consistent results" = consistent_r, 
+                      "Consistent winner" = consistent_w, 
+                      "Adventurous results" = adventurous_r, 
+                      "Adventurous winner" = adventurous_w, 
+                      "Faithful results" = faithful_r, 
+                      "Faithful winner" = faithful_w, 
+                      "Dedicated results" = dedicated_r, 
+                      "Dedicated winner" = dedicated_w, 
+                      "eBoY results" = eBoY_r, 
+                      "eBoY winner" = eBoY_w),
+             path = ycresultspath)
+  
+}
