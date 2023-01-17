@@ -6,6 +6,7 @@ library(lubridate)
 library(magrittr)
 library(glue)
 library(writexl) # to save results
+library(readxl)
 
 userspath <- "../ebird-datasets/EBD/ebd_users_relMay-2022.txt" # update when latest available
 
@@ -146,19 +147,33 @@ if (cur_month_num == 1 & exists("data_yc")) {
   ###### eBirder of the Year (eBirder of the Month >=8 months in 2021) ###
   
   # selection of final excludes the category winners
-  yc_cat_w <- bind_rows(prolific_w, consistent_w, adventuruous_w, 
+  yc_cat_w <- bind_rows(prolific_w, consistent_w, adventurous_w, 
                         faithful_w, dedicated_w) 
   
   
+  # excel files separately
+  temp <- list.files(path = glue("{rel_year}/"),
+                     pattern = "MC_results_",
+                     full.names = T)[9:12] %>% 
+    map(~ read_xlsx(., sheet = 2)) %>% 
+    bind_rows(.id = "MONTH") %>% 
+    mutate(MONTH = case_when(MONTH == 1 ~ 9,
+                             MONTH == 2 ~ 10,
+                             MONTH == 3 ~ 11,
+                             MONTH == 4 ~ 12))
+  
   eBoY_r <- list.files(path = glue("{rel_year}/"),
-                             pattern = "MC_results_",
-                             full.names = T) %>% 
+                       pattern = "MC_results_",
+                       full.names = T)[1:8] %>% 
     lapply(read_csv) %>% 
     bind_rows(.id = "MONTH") %>% 
+    mutate(MONTH = as.numeric(MONTH)) %>% 
+    bind_rows(temp) %>% 
     group_by(OBSERVER.ID, FULL.NAME) %>% 
     summarise(NO.MONTHS = n_distinct(MONTH)) %>% 
     filter(NO.MONTHS >= 8) %>% 
-    arrange(desc(NO.MONTHS))
+    arrange(desc(NO.MONTHS)) %>% 
+    ungroup()
   
   # random selection 
   a <- eBoY_r %>% 

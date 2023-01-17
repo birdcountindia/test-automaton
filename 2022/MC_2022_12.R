@@ -39,6 +39,7 @@ data2 <- data0 %>%
 
 results <- data1 %>% 
   inner_join(data2, by = "OBSERVER.ID") %>% 
+  left_join(eBird_users, by = "OBSERVER.ID") %>% 
   anti_join(filtGA, by = "OBSERVER.ID")
 
 
