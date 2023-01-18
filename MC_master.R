@@ -180,7 +180,7 @@ if (cur_month_num == 1 & exists("data_yc")) {
     # removing category winners
     anti_join(yc_cat_w) %>% 
     filter(FULL.NAME != "MetalClicks Ajay Ashok") # removes NAs too
-  set.seed(2022)
+  set.seed(50)
   eBoY_w <- a %>% slice_sample(n = 1) %>% select(FULL.NAME)
   print(glue("eBirder of the Year winner is {eBoY_w}"))
 

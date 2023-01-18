@@ -23,7 +23,7 @@ prolific_r <- data1 %>%
 # random selection 
 a <- prolific_r %>% 
   filter(FULL.NAME != "MetalClicks Ajay Ashok") # removes NAs too
-set.seed(20221)
+set.seed(25)
 prolific_w <- a %>% slice_sample(n = 1) %>% select(FULL.NAME)
 print(glue("Prolific challenge winner is {prolific_w}"))
 
@@ -43,7 +43,7 @@ consistent_r <- data1 %>%
 # random selection 
 a <- consistent_r %>% 
   filter(FULL.NAME != "MetalClicks Ajay Ashok") # removes NAs too
-set.seed(20222)
+set.seed(30)
 consistent_w <- a %>% slice_sample(n = 1) %>% select(FULL.NAME)
 print(glue("Consistent challenge winner is {consistent_w}"))
 
@@ -65,7 +65,7 @@ adventurous_r <- data1 %>%
 # random selection 
 a <- adventurous_r %>% 
   filter(FULL.NAME != "MetalClicks Ajay Ashok") # removes NAs too
-set.seed(20223)
+set.seed(35)
 adventurous_w <- a %>% slice_sample(n = 1) %>% select(FULL.NAME)
 print(glue("Adventurous challenge winner is {adventurous_w}"))
 
@@ -86,7 +86,7 @@ faithful_r <- data1 %>%
 # random selection 
 a <- faithful_r %>% 
   filter(FULL.NAME != "MetalClicks Ajay Ashok") # removes NAs too
-set.seed(20224)
+set.seed(40)
 faithful_w <- a %>% slice_sample(n = 1) %>% select(FULL.NAME)
 print(glue("Faithful challenge winner is {faithful_w}"))
 
@@ -112,7 +112,7 @@ dedicated_r <- data2 %>%
 # random selection 
 a <- dedicated_r %>% 
   filter(FULL.NAME != "MetalClicks Ajay Ashok") # removes NAs too
-set.seed(20225)
+set.seed(45)
 dedicated_w <- a %>% slice_sample(n = 1) %>% select(FULL.NAME)
 print(glue("Dedicated challenge winner is {dedicated_w}"))
 
