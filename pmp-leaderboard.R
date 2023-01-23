@@ -5,6 +5,7 @@ library(tidyverse)
 library(lubridate)
 library(glue)
 # library(runner) # for streak (install if not already)
+library(writexl)
 
 
 ### parameters ###
@@ -238,13 +239,8 @@ ldb2a <- ldb2 %>%
   arrange(desc(NO.INST), FULL.NAME) %>% 
   rownames_to_column("Rank")
 
-# patch-level leaderboard by highest streak
-ldb2b <- ldb2 %>% 
-  arrange(desc(H.STREAK), FULL.NAME) %>% 
-  rownames_to_column("Rank")
-
 # patch-level leaderboard by current streak
-ldb2c <- ldb2 %>% 
+ldb2b <- ldb2 %>% 
   arrange(desc(C.STREAK), FULL.NAME) %>% 
   rownames_to_column("Rank")
 
@@ -274,11 +270,9 @@ ldb3 <- data2 %>%
 ######### exporting leaderboards ####
 
 
-write_csv(ldb1, file = "ldb_obsr.csv")
-
-write_csv(ldb2a, file = "ldb_patch_1_inst.csv")
-write_csv(ldb2b, file = "ldb_patch_2_hstreak.csv")
-write_csv(ldb2c, file = "ldb_patch_3_cstreak.csv")
-
-write_csv(ldb3, file = "ldb_newjoin.csv")
+write_xlsx(x = list("Monitors" = ldb1, 
+                    "Instances" = ldb2a, 
+                    "Current streak" = ldb2b, 
+                    "New joinees" = ldb3),
+           path = ycresultspath)
 
