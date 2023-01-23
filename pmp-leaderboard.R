@@ -27,10 +27,8 @@ pmpstartdate <- as_date("2021-07-01") # 1st July = PMP start
 
 # for calculating streak
 currentdays <- 1 + as.numeric(cur_date - pmpstartdate)
-# for new joinees: day after which under consideration for new joinees
-halfdate <- pmpstartdate + months((currentdays/2) %/% 
-                                    ((365*3 + 366)/(12*4))) # average days in a month
-halfdays <- 1 + as.numeric(halfdate - pmpstartdate)
+# for new joinees (last 6 months): day after which under consideration for new joinees
+newjoin_date <- cur_date - months(6) 
 
 
 pmpdatapath <- glue("../ebird-datasets/EBD/pmp_rel{rel_month_lab}-{rel_year}.RData")
@@ -202,15 +200,15 @@ data_l3 <- data_l3 %>% left_join(data_l3c)
 ldb1 <- data_l3 %>% 
   pivot_wider(names_from = c(P.TYPE), values_from = NO.INST2, values_fill = 0) %>% 
   select(-"NA") %>% 
-  group_by(OBSERVER.ID, FULL.NAME, NO.LISTS, NO.P) %>% 
+  # adding state and district
+  left_join(patch_loc %>% distinct(OBSERVER.ID, STATE, COUNTY)) %>% 
+  group_by(OBSERVER.ID, FULL.NAME, STATE, COUNTY, NO.LISTS, NO.P) %>% 
   summarise(TOT.INST = sum(NO.INST), # total instances over different patches
             T.INST = sum(T.INST),
             W.INST = sum(W.INST)) %>% 
   ungroup() %>% 
   arrange(desc(TOT.INST), FULL.NAME) %>% 
-  rownames_to_column("Rank") %>% 
-  # adding state and district
-  left_join(patch_loc %>% distinct(OBSERVER.ID, STATE, COUNTY))
+  rownames_to_column("Rank")
 
 
 ######### streaks (based on each observer's frequency) ####
@@ -263,7 +261,7 @@ ldb3 <- data2 %>%
   group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID) %>% 
   arrange(DAY.PMP) %>% 
   slice(1) %>% ungroup() %>% 
-  filter(DAY.PMP >= halfdays) %>% 
+  filter(OBSERVATION.DATE >= newjoin_date) %>% 
   left_join(data_l2) %>% 
   left_join(data_l4) %>% 
   # adding state and district
