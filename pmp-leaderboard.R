@@ -20,6 +20,9 @@ rel_month_num <- (today() - months(1)) %>% month()
 rel_month_lab <- (today() - months(1)) %>% month(label = T, abbr = T) 
 
 cur_date <- today() %>% floor_date(unit = "month") # date under consideration for current leaderboard
+cur_year <- today() %>% year()
+cur_month_num <- today() %>% month()
+
 pmpstartdate <- as_date("2021-07-01") # 1st July = PMP start
 
 # for calculating streak
@@ -31,6 +34,7 @@ halfdays <- 1 + as.numeric(halfdate - pmpstartdate)
 
 
 pmpdatapath <- glue("../ebird-datasets/EBD/pmp_rel{rel_month_lab}-{rel_year}.RData")
+ldbpath <- glue("ldb_{cur_year}-{str_pad(cur_month_num, width = 2, pad = 0)}.xlsx")
 
 ###   ###
 
@@ -274,5 +278,5 @@ write_xlsx(x = list("Monitors" = ldb1,
                     "Instances" = ldb2a, 
                     "Current streak" = ldb2b, 
                     "New joinees" = ldb3),
-           path = ycresultspath)
+           path = ldbpath)
 
