@@ -61,6 +61,9 @@ data0 <- data_pmp %>%
   group_by(SAMPLING.EVENT.IDENTIFIER) %>% 
   filter(!any(OBSERVATION.COUNT == "X")) %>% 
   ungroup() 
+
+# observer-patch-state-district info
+patch_loc <- data0 %>% distinct(OBSERVER.ID, LOCALITY.ID, STATE, COUNTY)
   
 met_week <- function(dates) {
   require(lubridate)
@@ -205,7 +208,9 @@ ldb1 <- data_l3 %>%
             W.INST = sum(W.INST)) %>% 
   ungroup() %>% 
   arrange(desc(TOT.INST), FULL.NAME) %>% 
-  rownames_to_column("Rank")
+  rownames_to_column("Rank") %>% 
+  # adding state and district
+  left_join(patch_loc %>% distinct(OBSERVER.ID, STATE, COUNTY))
 
 
 ######### streaks (based on each observer's frequency) ####
@@ -213,8 +218,10 @@ ldb1 <- data_l3 %>%
 data_l4 <- data5 %>% 
   left_join(data_l3) %>% 
   select(-P.TYPE) %>% 
-  group_by(OBSERVER.ID, FULL.NAME, NO.LISTS, NO.P, LOCALITY.ID, LOCALITY, PATCH.NO, 
-           FREQ, FREQ.D, NO.INST) %>% 
+  # adding state and district
+  left_join(patch_loc) %>% 
+  group_by(OBSERVER.ID, FULL.NAME, NO.LISTS, NO.P, LOCALITY.ID, LOCALITY, 
+           STATE, COUNTY, PATCH.NO, FREQ, FREQ.D, NO.INST) %>% 
   summarise(FI.WEEK.PMP = WEEK.PMP, # final instance week
             FI.DAY.PMP = DAY.PMP, # final instance day
             FI.GAP.D = GAP.D, # final instance gap
@@ -236,8 +243,8 @@ data_l4 <- data5 %>%
 
 
 ldb2 <- data_l4 %>% 
-  select(-c(LOCALITY.ID, NO.LISTS, NO.P, FI.WEEK.PMP, FI.DAY.PMP, FI.GAP, FI.SAME, FI.CONT)) 
-  
+  select(-c(LOCALITY.ID, NO.LISTS, NO.P, FI.WEEK.PMP, FI.DAY.PMP, FI.GAP, FI.SAME, FI.CONT))
+
 # patch-level leaderboard by number of instances
 ldb2a <- ldb2 %>% 
   arrange(desc(NO.INST), FULL.NAME) %>% 
@@ -259,7 +266,9 @@ ldb3 <- data2 %>%
   filter(DAY.PMP >= halfdays) %>% 
   left_join(data_l2) %>% 
   left_join(data_l4) %>% 
-  group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID, LOCALITY) %>% 
+  # adding state and district
+  left_join(patch_loc) %>% 
+  group_by(OBSERVER.ID, FULL.NAME, LOCALITY.ID, LOCALITY, STATE, COUNTY) %>% 
   summarise(J.MONTH = MONTH,
             J.WEEK.PMP = WEEK.PMP,
             J.DAY.PMP = DAY.PMP,
