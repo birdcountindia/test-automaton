@@ -267,6 +267,7 @@ ldb3 <- data2 %>%
             FI.DAY.PMP = FI.DAY.PMP) %>% 
   ungroup() %>% 
   arrange(desc(J.DAY.PMP)) %>% 
+  mutate(J.MONTH.LAB = J.MONTH %>% month(label = T, abbr = T)) %>% 
   rownames_to_column("Rank")
 
 
