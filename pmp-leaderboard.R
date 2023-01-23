@@ -49,6 +49,17 @@ load(pmpdatapath)
 data_pmp <- left_join(data_pmp, eBird_users, "OBSERVER.ID")
 
 
+### list of all PMP participants so far (overwrites previous file) ###
+
+participants <- data_pmp %>% 
+  distinct(OBSERVER.ID, FULL.NAME) %>% 
+  filter(OBSERVER.ID != "obsr2607928")
+
+write_csv(participants, file = "pmp_participants.csv")
+
+### ###
+
+
 data0 <- data_pmp %>% 
   ungroup() %>% 
   filter(OBSERVER.ID != "obsr2607928") %>% # PMP account
@@ -102,11 +113,11 @@ temp2 <- data1 %>%
 
 
 data2 <- data1 %>% 
-  filter(OBSERVER.ID %in% temp2$OBSERVER.ID,
-         str_detect(LOCALITY, "PMP")) %>% 
+  filter(OBSERVER.ID %in% temp2$OBSERVER.ID) %>% 
+  # filter(str_detect(LOCALITY, "PMP")) %>% # PMP in location name is not mandate
   # Lakshmikant/Loukika slash
   mutate(FULL.NAME = case_when(FULL.NAME == "Lakshmikant Neve" ~ 
-                                 "Lakshmikant/Loukika Neve",
+                                 "Lakshmikant-Loukika Neve",
                                TRUE ~ FULL.NAME))
 
 

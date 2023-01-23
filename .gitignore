@@ -8,3 +8,6 @@
 *.csv
 *.RData
 *.txt
+
+# folder with all yearly pattern figures
+pmp-yearly-patterns/
