@@ -42,16 +42,18 @@ map_choropleth <- function(data_sf, var, var_legend, bound, grid){
 
 # coverage point maps ---------------------------------------------------------------
 
-cov_point_map_plain <- function(data, poly_sf, poly_bound_col = NA,
-                                plot_title = NULL,
+cov_point_map_plain <- function(data, poly_sf, poly_bound_col = NA, 
+                                point_col = "#FCFA53", point_size = 0.05, 
+                                point_stroke = 0, point_alpha = 1,
+                                plot_fill = "black", plot_title = NULL,
                                 plot_margin = c(0.75, 1.5, 1.5, 1.5)) {
   
   # data should have LONGITUDE and LATITUDE columns
   
   ggplot(data) +
-    geom_sf(data = poly_sf, colour = poly_bound_col, fill = "black") +
+    geom_sf(data = poly_sf, colour = poly_bound_col, fill = plot_fill) +
     geom_point(data = data, aes(x = LONGITUDE, y = LATITUDE), 
-               colour = "#fcfa53", size = 0.05, stroke = 0) +
+               colour = point_col, size = point_size, stroke = point_stroke, alpha = point_alpha) +
     {if (!is.null(plot_title)) {
       labs(title = plot_title)
     }} +
@@ -66,9 +68,9 @@ cov_point_map_plain <- function(data, poly_sf, poly_bound_col = NA,
           panel.grid.minor = element_blank(),
           panel.border = element_blank(),
           plot.margin = unit(plot_margin, "lines"),
-          plot.background = element_rect(fill = "black", colour = NA),
-          panel.background = element_rect(fill = "black", colour = NA),
-          plot.title = element_text(hjust = 0.5, colour = "#FCFA53")) +
+          plot.background = element_rect(fill = plot_fill, colour = NA),
+          panel.background = element_rect(fill = plot_fill, colour = NA),
+          plot.title = element_text(hjust = 0.5, colour = point_col)) +
     coord_sf(clip = "off", xlim = xlimit, ylim = ylimit) -> map
   
   return(map)
