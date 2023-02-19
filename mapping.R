@@ -38,3 +38,39 @@ map_choropleth <- function(data_sf, var, var_legend, bound, grid){
     scale_fill_viridis_c(name = var_legend)
   
 }
+
+
+# coverage point maps ---------------------------------------------------------------
+
+cov_point_map_plain <- function(data, poly_sf, poly_bound_col = NA,
+                                plot_title = NULL,
+                                plot_margin = c(0.75, 1.5, 1.5, 1.5)) {
+  
+  # data should have LONGITUDE and LATITUDE columns
+  
+  ggplot(data) +
+    geom_sf(data = poly_sf, colour = poly_bound_col, fill = "black") +
+    geom_point(data = data, aes(x = LONGITUDE, y = LATITUDE), 
+               colour = "#fcfa53", size = 0.05, stroke = 0) +
+    {if (!is.null(plot_title)) {
+      labs(title = plot_title)
+    }} +
+    theme_bw() +
+    theme(axis.line = element_blank(),
+          axis.text.x = element_blank(),
+          axis.text.y = element_blank(),
+          axis.ticks = element_blank(),
+          axis.title.x = element_blank(),
+          axis.title.y = element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.border = element_blank(),
+          plot.margin = unit(plot_margin, "lines"),
+          plot.background = element_rect(fill = "black", colour = NA),
+          panel.background = element_rect(fill = "black", colour = NA),
+          plot.title = element_text(hjust = 0.5, colour = "#FCFA53")) +
+    coord_sf(clip = "off", xlim = xlimit, ylim = ylimit) -> map
+  
+  return(map)
+  
+}
