@@ -8,6 +8,10 @@ library(glue)
 library(writexl) # to save results
 library(readxl)
 
+# function to get summary stats
+source("https://raw.githubusercontent.com/birdcountindia/bci-functions/main/summaries.R")
+
+
 userspath <- "../ebird-datasets/EBD/ebd_users_relMay-2022.txt" # update when latest available
 
 ###### automated parameters ####
@@ -59,33 +63,7 @@ filtGA <- groupaccs %>%
 
 ###### monthly stats ####
 
-tot_bdr <- n_distinct(data_mc$OBSERVER.ID)
-tot_obs <- length(data_mc$COMMON.NAME)
-tot_lists <- n_distinct(data_mc$SAMPLING.EVENT.IDENTIFIER)
-
-tot_specs <- data_mc %>% 
-  filter(CATEGORY %in% c("species","issf")) %$% 
-  n_distinct(COMMON.NAME)
-# complete lists
-tot_clists <- data_mc %>% 
-  filter(ALL.SPECIES.REPORTED == 1) %$% 
-  n_distinct(SAMPLING.EVENT.IDENTIFIER)
-# unique lists with media
-tot_mlists <- data_mc %>% 
-  group_by(GROUP.ID) %>% 
-  filter(any(HAS.MEDIA == 1)) %>% 
-  ungroup() %$%
-  n_distinct(GROUP.ID)
-
-stats <- data.frame(A = tot_bdr, 
-                    B = tot_obs,
-                    C = tot_lists,
-                    D = tot_specs,
-                    E = tot_clists,
-                    F = tot_mlists) %>% 
-  magrittr::set_colnames(c("eBirders", "observations", "lists (all types)", "species",
-                           "complete lists", "lists with media")) %>% 
-  pivot_longer(everything(), names_to = "Number of", values_to = "Values")
+stats <- basic_stats(data_mc)
 
 ###### monthly challenge winners/results ####
 
@@ -103,34 +81,8 @@ write_xlsx(x = list("Monthly stats" = stats,
 
 if (cur_month_num == 1 & exists("data_yc")) {
   
-tot_bdr <- n_distinct(data_yc$OBSERVER.ID)
-tot_obs <- length(data_yc$COMMON.NAME)
-tot_lists <- n_distinct(data_yc$SAMPLING.EVENT.IDENTIFIER)
-
-tot_specs <- data_yc %>% 
-  filter(CATEGORY %in% c("species","issf")) %$% 
-  n_distinct(COMMON.NAME)
-# complete lists
-tot_clists <- data_yc %>% 
-  filter(ALL.SPECIES.REPORTED == 1) %$% 
-  n_distinct(SAMPLING.EVENT.IDENTIFIER)
-# unique lists with media
-tot_mlists <- data_yc %>% 
-  group_by(GROUP.ID) %>% 
-  filter(any(HAS.MEDIA == 1)) %>% 
-  ungroup() %$%
-  n_distinct(GROUP.ID)
-
-stats <- data.frame(A = tot_bdr, 
-                    B = tot_obs,
-                    C = tot_lists,
-                    D = tot_specs,
-                    E = tot_clists,
-                    F = tot_mlists) %>% 
-  magrittr::set_colnames(c("eBirders", "observations", "lists (all types)", "species",
-                           "complete lists", "lists with media")) %>% 
-  pivot_longer(everything(), names_to = "Number of", values_to = "Values")
-
+  stats <- basic_stats(data_yc)
+  
 } else if (cur_month_num == 1 & !exists("data_yc")) {
   
   print("Yearly data needed but not loaded.")
