@@ -71,8 +71,9 @@ cov_point_map_plain <- function(data, poly_sf, poly_bound_col = NA,
           plot.background = element_rect(fill = plot_fill, colour = NA),
           panel.background = element_rect(fill = plot_fill, colour = NA),
           plot.title = element_text(hjust = 0.5, colour = point_col)) +
-    coord_sf(clip = "off", xlim = xlimit, ylim = ylimit) -> map
+    coord_sf(clip = "off") -> map
   
   return(map)
   
 }
+
