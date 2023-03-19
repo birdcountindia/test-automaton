@@ -86,7 +86,7 @@ faithful_r <- data1 %>%
 # random selection 
 a <- faithful_r %>% 
   filter(FULL.NAME != "MetalClicks Ajay Ashok") # removes NAs too
-set.seed(40)
+set.seed(42)
 faithful_w <- a %>% slice_sample(n = 1) %>% select(FULL.NAME)
 print(glue("Faithful challenge winner is {faithful_w}"))
 
