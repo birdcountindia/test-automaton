@@ -48,6 +48,7 @@ basic_stats <- function(data, pipeline = F, prettify = T) {
                           F = tot_mlists,
                           G = tot_specs,
                           H = tot_locs) %>% 
+        mutate(across(everything(), ~ replace_na(.x, 0))) %>% 
         magrittr::set_colnames(c("eBirders", "observations", "lists (all types)", 
                                  "unique lists", "complete lists", "unique lists with media",
                                  "species", "locations")) %>% 
@@ -63,6 +64,7 @@ basic_stats <- function(data, pipeline = F, prettify = T) {
                           F = tot_mlists,
                           G = tot_specs,
                           H = tot_locs) %>% 
+        mutate(across(everything(), ~ replace_na(.x, 0))) %>% 
         magrittr::set_colnames(c("PARTICIPANTS", "OBSERVATIONS", "LISTS.ALL", "LISTS.U", 
                                  "LISTS.C", "LISTS.M", "SPECIES", "LOCATIONS"))
       
@@ -112,6 +114,7 @@ basic_stats <- function(data, pipeline = F, prettify = T) {
         
         stats <- temp1 %>% 
           bind_cols(temp2, temp3, temp4, temp5) %>% 
+          mutate(across(everything(), ~ replace_na(.x, 0))) %>% 
           magrittr::set_colnames(c("eBirders", "observations", "lists (all types)", 
                                    "unique lists", "complete lists", "unique lists with media",
                                    "species", "locations")) %>% 
@@ -124,6 +127,7 @@ basic_stats <- function(data, pipeline = F, prettify = T) {
           left_join(temp3) %>% 
           left_join(temp4) %>% 
           left_join(temp5) %>% 
+          mutate(across(everything(), ~ replace_na(.x, 0))) %>% 
           rename(eBirders = A,
                  observations = B,
                  `lists (all types)` = C,
@@ -144,6 +148,7 @@ basic_stats <- function(data, pipeline = F, prettify = T) {
         
         stats <- temp1 %>%
           bind_cols(temp2, temp3, temp4, temp5) %>%
+          mutate(across(everything(), ~ replace_na(.x, 0))) %>% 
           magrittr::set_colnames(c("PARTICIPANTS", "OBSERVATIONS", "LISTS.ALL", "LISTS.U",
                                    "LISTS.C", "LISTS.M", "SPECIES", "LOCATIONS"))
         
@@ -154,6 +159,7 @@ basic_stats <- function(data, pipeline = F, prettify = T) {
           left_join(temp3) %>% 
           left_join(temp4) %>% 
           left_join(temp5) %>% 
+          mutate(across(everything(), ~ replace_na(.x, 0))) %>% 
           rename(PARTICIPANTS = A,
                  OBSERVATIONS = B,
                  LISTS.ALL = C,
