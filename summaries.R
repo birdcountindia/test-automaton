@@ -82,27 +82,32 @@ basic_stats <- function(data, pipeline = F, prettify = T) {
                 B = length(COMMON.NAME),
                 C = n_distinct(SAMPLING.EVENT.IDENTIFIER),
                 # unique lists
-                D = n_distinct(GROUP.ID))
+                D = n_distinct(GROUP.ID),
+                .groups = "keep")
     
     # complete lists
     temp2 <- data %>% 
       filter(ALL.SPECIES.REPORTED == 1) %>% 
-      summarise(E = n_distinct(SAMPLING.EVENT.IDENTIFIER))
+      summarise(E = n_distinct(SAMPLING.EVENT.IDENTIFIER),
+                .groups = "keep")
     
     # unique lists with media
     temp3 <- data %>% 
       group_by(GROUP.ID, .add = T) %>% 
       filter(any(HAS.MEDIA == 1)) %>% 
       ungroup(GROUP.ID) %>% 
-      summarise(F = n_distinct(GROUP.ID))
+      summarise(F = n_distinct(GROUP.ID),
+                .groups = "keep")
     
     
     temp4 <- data %>% 
       filter(CATEGORY %in% c("species","issf")) %>% 
-      summarise(G = n_distinct(COMMON.NAME))
+      summarise(G = n_distinct(COMMON.NAME),
+                .groups = "keep")
     
     temp5 <- data %>% 
-      summarise(H = n_distinct(LOCALITY.ID))
+      summarise(H = n_distinct(LOCALITY.ID),
+                .groups = "keep")
     
     
     if (prettify == T) {
@@ -179,3 +184,4 @@ basic_stats <- function(data, pipeline = F, prettify = T) {
   }
   
 }
+
