@@ -25,17 +25,24 @@ basic_stats <- function(data, pipeline = F, prettify = T) {
     
     # unique lists with media
     tot_mlists <- data %>% 
-      group_by(GROUP.ID) %>% 
+      group_by(GROUP.ID, .add = T) %>% 
       filter(any(HAS.MEDIA == 1)) %>% 
-      ungroup() %$%
+      ungroup(GROUP.ID) %$%
       n_distinct(GROUP.ID)
     
     
     tot_specs <- data %>% 
-      filter(CATEGORY %in% c("species","issf")) %$% 
+      filter(CATEGORY %in% c("species","issf")) %>%  
+      filter(is.na(EXOTIC.CODE)) %$%
       n_distinct(COMMON.NAME)
     
     tot_locs <- n_distinct(data$LOCALITY.ID)
+    
+    tot_hours <- data %>% 
+      group_by(SAMPLING.EVENT.IDENTIFIER, .add = T) %>% 
+      slice(1) %>%
+      ungroup(SAMPLING.EVENT.IDENTIFIER) %$% 
+      sum(na.omit(DURATION.MINUTES/60))
     
     
     if (prettify == T) {
@@ -47,11 +54,12 @@ basic_stats <- function(data, pipeline = F, prettify = T) {
                           E = tot_clists,
                           F = tot_mlists,
                           G = tot_specs,
-                          H = tot_locs) %>% 
+                          H = tot_locs,
+                          I = tot_hours) %>% 
         mutate(across(everything(), ~ replace_na(.x, 0))) %>% 
         magrittr::set_colnames(c("eBirders", "observations", "lists (all types)", 
                                  "unique lists", "complete lists", "unique lists with media",
-                                 "species", "locations")) %>% 
+                                 "species", "locations", "person hours")) %>% 
         pivot_longer(everything(), names_to = "Number of", values_to = "Values")
       
     } else if (prettify == F) {
@@ -63,15 +71,17 @@ basic_stats <- function(data, pipeline = F, prettify = T) {
                           E = tot_clists,
                           F = tot_mlists,
                           G = tot_specs,
-                          H = tot_locs) %>% 
+                          H = tot_locs,
+                          I = tot_hours) %>% 
         mutate(across(everything(), ~ replace_na(.x, 0))) %>% 
         magrittr::set_colnames(c("PARTICIPANTS", "OBSERVATIONS", "LISTS.ALL", "LISTS.U", 
-                                 "LISTS.C", "LISTS.M", "SPECIES", "LOCATIONS"))
+                                 "LISTS.C", "LISTS.M", "SPECIES", "LOCATIONS", "HOURS"))
       
     }
     
     
     return(stats)
+    
     
   } else if (pipeline == T) {
     
@@ -102,11 +112,19 @@ basic_stats <- function(data, pipeline = F, prettify = T) {
     
     temp4 <- data %>% 
       filter(CATEGORY %in% c("species","issf")) %>% 
+      filter(is.na(EXOTIC.CODE)) %>%
       summarise(G = n_distinct(COMMON.NAME),
                 .groups = "keep")
     
     temp5 <- data %>% 
       summarise(H = n_distinct(LOCALITY.ID),
+                .groups = "keep")
+    
+    temp6 <- data %>% 
+      group_by(SAMPLING.EVENT.IDENTIFIER, .add = T) %>% 
+      slice(1) %>%
+      ungroup(SAMPLING.EVENT.IDENTIFIER) %>% 
+      summarise(I = sum(na.omit(DURATION.MINUTES/60)),
                 .groups = "keep")
     
     
@@ -118,11 +136,11 @@ basic_stats <- function(data, pipeline = F, prettify = T) {
            dim(temp1)[1] == dim(temp1)[5]) {
         
         stats <- temp1 %>% 
-          bind_cols(temp2, temp3, temp4, temp5) %>% 
+          bind_cols(temp2, temp3, temp4, temp5, temp6) %>% 
           mutate(across(everything(), ~ replace_na(.x, 0))) %>% 
           magrittr::set_colnames(c("eBirders", "observations", "lists (all types)", 
                                    "unique lists", "complete lists", "unique lists with media",
-                                   "species", "locations")) %>% 
+                                   "species", "locations", "person hours")) %>% 
           pivot_longer(everything(), names_to = "Number of", values_to = "Values")
         
       } else { # this means there is some existing grouping in objects, so common column
@@ -132,6 +150,7 @@ basic_stats <- function(data, pipeline = F, prettify = T) {
           left_join(temp3) %>% 
           left_join(temp4) %>% 
           left_join(temp5) %>% 
+          left_join(temp6) %>% 
           mutate(across(everything(), ~ replace_na(.x, 0))) %>% 
           rename(eBirders = A,
                  observations = B,
@@ -140,7 +159,8 @@ basic_stats <- function(data, pipeline = F, prettify = T) {
                  `complete lists` = E,
                  `unique lists with media` = `F`,
                  species = G,
-                 locations = H)
+                 locations = H,
+                 `person hours` = I)
         
       }}
       
@@ -152,10 +172,10 @@ basic_stats <- function(data, pipeline = F, prettify = T) {
            dim(temp1)[1] == dim(temp1)[5]) {
         
         stats <- temp1 %>%
-          bind_cols(temp2, temp3, temp4, temp5) %>%
+          bind_cols(temp2, temp3, temp4, temp5, temp6) %>%
           mutate(across(everything(), ~ replace_na(.x, 0))) %>% 
           magrittr::set_colnames(c("PARTICIPANTS", "OBSERVATIONS", "LISTS.ALL", "LISTS.U",
-                                   "LISTS.C", "LISTS.M", "SPECIES", "LOCATIONS"))
+                                   "LISTS.C", "LISTS.M", "SPECIES", "LOCATIONS", "HOURS"))
         
       } else { # this means there is some existing grouping in objects, so common column
         
@@ -172,7 +192,8 @@ basic_stats <- function(data, pipeline = F, prettify = T) {
                  LISTS.C = E,
                  LISTS.M = `F`,
                  SPECIES = G,
-                 LOCATIONS = H)
+                 LOCATIONS = H,
+                 HOURS = I)
         
       }}
       
