@@ -33,7 +33,7 @@ basic_stats <- function(data, pipeline = F, prettify = T) {
     
     tot_specs <- data %>% 
       filter(CATEGORY %in% c("species","issf")) %>%  
-      filter(is.na(EXOTIC.CODE)) %$%
+      filter(!EXOTIC.CODE %in% c("X")) %>%
       n_distinct(COMMON.NAME)
     
     tot_locs <- n_distinct(data$LOCALITY.ID)
@@ -112,7 +112,7 @@ basic_stats <- function(data, pipeline = F, prettify = T) {
     
     temp4 <- data %>% 
       filter(CATEGORY %in% c("species","issf")) %>% 
-      filter(is.na(EXOTIC.CODE)) %>%
+      filter(!EXOTIC.CODE %in% c("X")) %>%
       summarise(G = n_distinct(COMMON.NAME),
                 .groups = "keep")
     
