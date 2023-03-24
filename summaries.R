@@ -184,6 +184,7 @@ basic_stats <- function(data, pipeline = F, prettify = T) {
           left_join(temp3) %>% 
           left_join(temp4) %>% 
           left_join(temp5) %>% 
+          left_join(temp6) %>% 
           mutate(across(everything(), ~ replace_na(.x, 0))) %>% 
           rename(PARTICIPANTS = A,
                  OBSERVATIONS = B,
