@@ -126,6 +126,89 @@ join_map_sf <- function(data) {
   
 }
 
+
+# join maps_BT_NP_sf vars to EBD data (for HBC) ---------------------------
+
+join_BT_NP_sf <- function(data) {
+  
+  # need "maps_BT_NP_sf.RData" objects loaded
+  
+  if (("Bhutan" %in% data$COUNTRY) | ("Nepal" %in% data$COUNTRY)) {
+    return("EBD for Bhutan/Nepal not loaded!")
+  }
+  
+  temp <- data %>% 
+    distinct(SAMPLING.EVENT.IDENTIFIER, COUNTY, STATE, LONGITUDE, LATITUDE) %>% 
+    # sensitive species haven't got district/admin updates so showing up with different values
+    group_by(SAMPLING.EVENT.IDENTIFIER) %>% 
+    slice(1) %>% 
+    ungroup() %>% 
+    # joining map vars to EBD
+    st_as_sf(coords = c("LONGITUDE", "LATITUDE"), remove = F) %>% 
+    st_set_crs(st_crs(bt_dists_sf)) %>% 
+    # Bhutan
+    st_join(bt_dists_sf) %>% 
+    st_join(bt_states_sf) %>% 
+    # Nepal
+    st_join(np_dists_sf) %>% 
+    st_join(np_states_sf) %>% 
+    st_drop_geometry()
+  
+  # first get list of checklists that have NA then join geometry by name of district/state
+  # cannot do this for grid cells because no existing column in eBird to join by
+  temp1 <- temp %>% 
+    filter(is.na(DISTRICT.NAME)) %>% 
+    distinct(SAMPLING.EVENT.IDENTIFIER, COUNTY) %>% 
+    # sensitive species haven't got district/admin updates so showing up with different values
+    group_by(SAMPLING.EVENT.IDENTIFIER) %>% 
+    slice(1) %>% 
+    ungroup() %>% 
+    rename(DISTRICT.NAME = COUNTY)
+  
+  temp2 <- temp %>% 
+    filter(is.na(STATE.NAME)) %>% 
+    distinct(SAMPLING.EVENT.IDENTIFIER, STATE) %>% 
+    group_by(SAMPLING.EVENT.IDENTIFIER) %>% 
+    slice(1) %>% 
+    ungroup() %>% 
+    rename(STATE.NAME = STATE)
+  
+  
+  # then get list of checklists that DO NOT have NA separately
+  temp1a <- temp %>% 
+    filter(!is.na(DISTRICT.NAME)) %>% 
+    distinct(SAMPLING.EVENT.IDENTIFIER, DISTRICT.NAME) %>% 
+    group_by(SAMPLING.EVENT.IDENTIFIER) %>% 
+    slice(1) %>% 
+    ungroup() 
+  
+  temp2a <- temp %>% 
+    filter(!is.na(STATE.NAME)) %>% 
+    distinct(SAMPLING.EVENT.IDENTIFIER, STATE.NAME) %>% 
+    group_by(SAMPLING.EVENT.IDENTIFIER) %>% 
+    slice(1) %>% 
+    ungroup() 
+  
+  
+  tempa <- full_join(temp1a, temp2a, by = "SAMPLING.EVENT.IDENTIFIER")
+
+
+  # join everything back
+  temp_all <- full_join(temp1, temp2, by = "SAMPLING.EVENT.IDENTIFIER") %>% 
+    full_join(tempa, by = "SAMPLING.EVENT.IDENTIFIER") %>% 
+    # this results in .x and .y columns for district and state names, so coalesce
+    mutate(DISTRICT.NAME = coalesce(!!!dplyr::select(., contains("DISTRICT.NAME"))),
+           STATE.NAME = coalesce(!!!dplyr::select(., contains("STATE.NAME")))) %>% 
+    dplyr::select(SAMPLING.EVENT.IDENTIFIER, DISTRICT.NAME, STATE.NAME)
+  
+  
+  # joining GROUP.ID-mapvars info to full data
+  data <- data %>% left_join(temp_all)
+  
+  return(data)
+  
+}
+
 # choropleth maps from data ---------------------------------------------------------
 
 map_choropleth <- function(data_sf, var, var_legend, bound, grid){
