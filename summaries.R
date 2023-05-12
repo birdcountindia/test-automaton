@@ -130,10 +130,7 @@ basic_stats <- function(data, pipeline = F, prettify = T) {
     
     if (prettify == T) {
       
-      {if (dim(temp1)[1] == dim(temp1)[2] &
-           dim(temp1)[1] == dim(temp1)[3] &
-           dim(temp1)[1] == dim(temp1)[4] &
-           dim(temp1)[1] == dim(temp1)[5]) {
+      {if (rlang::is_empty(data %>% group_vars())) {
         
         stats <- temp1 %>% 
           bind_cols(temp2, temp3, temp4, temp5, temp6) %>% 
@@ -166,10 +163,7 @@ basic_stats <- function(data, pipeline = F, prettify = T) {
       
     } else if (prettify == F) {
       
-      {if (dim(temp1)[1] == dim(temp1)[2] &
-           dim(temp1)[1] == dim(temp1)[3] &
-           dim(temp1)[1] == dim(temp1)[4] &
-           dim(temp1)[1] == dim(temp1)[5]) {
+      {if (rlang::is_empty(data %>% group_vars())) { # no grouping, so can bind
         
         stats <- temp1 %>%
           bind_cols(temp2, temp3, temp4, temp5, temp6) %>%
