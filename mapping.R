@@ -133,7 +133,7 @@ join_BT_NP_sf <- function(data) {
   
   # need "maps_BT_NP_sf.RData" objects loaded
   
-  if (("Bhutan" %in% data$COUNTRY) | ("Nepal" %in% data$COUNTRY)) {
+  if (!("Bhutan" %in% data$COUNTRY) | !("Nepal" %in% data$COUNTRY)) {
     return("EBD for Bhutan/Nepal not loaded!")
   }
   
@@ -148,11 +148,15 @@ join_BT_NP_sf <- function(data) {
     st_set_crs(st_crs(bt_dists_sf)) %>% 
     # Bhutan
     st_join(bt_dists_sf) %>% 
-    st_join(bt_states_sf) %>% 
+    st_join(bt_states_sf %>% dplyr::select(-COUNTRY)) %>% 
     # Nepal
     st_join(np_dists_sf) %>% 
-    st_join(np_states_sf) %>% 
-    st_drop_geometry()
+    st_join(np_states_sf %>% dplyr::select(-COUNTRY)) %>% 
+    st_drop_geometry() %>% 
+    mutate(COUNTRY = coalesce(COUNTRY.x, COUNTRY.y),
+           DISTRICT.NAME = coalesce(DISTRICT.NAME.x, DISTRICT.NAME.y),
+           STATE.NAME = coalesce(STATE.NAME.x, STATE.NAME.y)) %>% 
+    mutate(across(contains(".x") | contains(".y"), ~ as.null(.x)))
   
   # first get list of checklists that have NA then join geometry by name of district/state
   # cannot do this for grid cells because no existing column in eBird to join by
