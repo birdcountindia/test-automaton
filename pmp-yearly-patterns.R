@@ -16,8 +16,8 @@ cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73",
 
 ### parameters ###
 
-# update when latest available
-userspath <- "../ebird-datasets/EBD/ebd_users_relMay-2022.txt" 
+# paths to latest versions of user & GA info, and sensitive species data
+load(url("https://github.com/birdcountindia/ebird-datasets/raw/main/EBD/latest_non-EBD_paths.RData"))
 
 logo1 <- image_convert(image_read("bcilogo.png"), matte = T)
 logo2 <- image_convert(image_read("eBird India logo.png"), matte = T)

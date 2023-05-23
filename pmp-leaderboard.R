@@ -10,10 +10,8 @@ library(writexl)
 
 ### parameters ###
 
-
-# update when latest available
-userspath <- "../ebird-datasets/EBD/ebd_users_relMay-2022.txt" 
-
+# paths to latest versions of user & GA info, and sensitive species data
+load(url("https://github.com/birdcountindia/ebird-datasets/raw/main/EBD/latest_non-EBD_paths.RData"))
 
 rel_year <- (today() - months(1)) %>% year()
 rel_month_num <- (today() - months(1)) %>% month()
