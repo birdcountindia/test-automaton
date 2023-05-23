@@ -11,10 +11,10 @@ library(readxl)
 # function to get summary stats
 source("https://raw.githubusercontent.com/birdcountindia/bci-functions/main/summaries.R")
 
-
-userspath <- "../ebird-datasets/EBD/ebd_users_relFeb-2023.txt" # update when latest available
-
 ###### automated parameters ####
+
+# paths to latest versions of user & GA info, and sensitive species data
+load(url("https://github.com/birdcountindia/ebird-datasets/raw/main/EBD/latest_non-EBD_paths.RData"))
 
 cur_year <- today() %>% year()
 cur_month_num <- today() %>% month()
@@ -23,9 +23,6 @@ cur_month_lab <- today() %>% month(label = T, abbr = T)
 rel_year <- (today() - months(1)) %>% year()
 rel_month_num <- (today() - months(1)) %>% month()
 rel_month_lab <- (today() - months(1)) %>% month(label = T, abbr = T) 
-
-latestusersrel <- str_extract(userspath, "(?<=rel)[^.]*(?=.|$)")
-groupaccspath <- glue("../ebird-datasets/group-accounts/ebd_users_GA_rel{latestusersrel}.csv")
 
 mcdatapath <-  glue("../ebird-datasets/EBD/ebd_IN_rel{rel_month_lab}-{rel_year}_{toupper(rel_month_lab)}.RData")
 mcresultspath <- glue("{rel_year}/MC_results_{rel_year}_{str_pad(rel_month_num, width=2, pad='0')}.xlsx")
