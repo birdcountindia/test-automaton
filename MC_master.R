@@ -15,6 +15,9 @@ source("https://raw.githubusercontent.com/birdcountindia/bci-functions/main/summ
 
 # paths to latest versions of user & GA info, and sensitive species data
 load(url("https://github.com/birdcountindia/ebird-datasets/raw/main/EBD/latest_non-EBD_paths.RData"))
+userspath <- glue("../ebird-datasets/{userspath}")
+groupaccspath <- glue("../ebird-datasets/{groupaccspath}")
+senspath <- glue("../ebird-datasets/{senspath}")
 
 cur_year <- today() %>% year()
 cur_month_num <- today() %>% month()
