@@ -148,10 +148,8 @@ join_BT_NP_sf <- function(data) {
     st_set_crs(st_crs(bt_dists_sf)) %>% 
     # Bhutan
     st_join(bt_dists_sf) %>% 
-    st_join(bt_states_sf %>% dplyr::select(-COUNTRY)) %>% 
     # Nepal
     st_join(np_dists_sf) %>% 
-    st_join(np_states_sf %>% dplyr::select(-COUNTRY)) %>% 
     st_drop_geometry() %>% 
     mutate(COUNTRY = coalesce(COUNTRY.x, COUNTRY.y),
            DISTRICT.NAME = coalesce(DISTRICT.NAME.x, DISTRICT.NAME.y),
