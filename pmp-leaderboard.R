@@ -12,6 +12,10 @@ library(writexl)
 
 # paths to latest versions of user & GA info, and sensitive species data
 load(url("https://github.com/birdcountindia/ebird-datasets/raw/main/EBD/latest_non-EBD_paths.RData"))
+userspath <- glue("../ebird-datasets/{userspath}")
+groupaccspath <- glue("../ebird-datasets/{groupaccspath}")
+senspath <- glue("../ebird-datasets/{senspath}")
+
 
 rel_year <- (today() - months(1)) %>% year()
 rel_month_num <- (today() - months(1)) %>% month()
@@ -296,4 +300,5 @@ write_xlsx(x = list("Monitors" = ldb1,
                     "Current streak" = ldb2b, 
                     "New joinees" = ldb3),
            path = ldbpath)
+
 
