@@ -1,8 +1,10 @@
+
 1. Add remotes to external repos to be merged.
 
 ```
 git remote add -f bcichallenges https://github.com/birdcountindia/BCI-challenges
 git remote add -f bcifunctions https://github.com/birdcountindia/bci-functions
+git remote add -f pmp https://github.com/birdcountindia/BCI-patchmon
 ```
 
 2. Create a new branch for the external repository
@@ -26,6 +28,14 @@ git remote remove bcifunctions
 git branch bci-functions -u origin/bci-functions
 # changes
 git push origin bci-functions
+
+git checkout -b pmp pmp/main
+git pull origin main --allow-unrelated-histories
+git remote remove pmp
+git push origin pmp
+git branch pmp -u origin/pmp
+# changes
+git push origin pmp
 ```
 
 8. Merge individual branches into main branch (will have conflicts)
@@ -36,3 +46,12 @@ git merge --allow-unrelated-histories bci-challenges
 git merge --allow-unrelated-histories bci-functions
 ```
 
+### Resources
+
+This workflow was formulated using several guides/resources including:
+
+- https://gfscott.com/blog/merge-git-repos-and-keep-commit-history/
+- https://stackdiary.com/tutorials/how-to-merge-two-git-repositories/
+
+<!-- -->
+<!-- -->
