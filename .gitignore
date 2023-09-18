@@ -1,13 +1,20 @@
 .Rproj.user
 .Rhistory
-.RData
 .Ruserdata
 
+*.RData
 *.Rproj
 
-*.csv
-*.xlsx
-*.RData
-*.txt
 
-2022/consistent_troubleshoot_2022.R
+# data files
+*.xlsx
+*.txt
+*.zip
+*.pdf
+*.docx
+*.csv
+
+
+# challenges
+02_challenges/*.csv
+02_challenges/2022/consistent_troubleshoot_2022.R
