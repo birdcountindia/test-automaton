@@ -5,9 +5,9 @@ git remote add bcifunctions https://github.com/birdcountindia/bci-functions
 git fetch --all
 ```
 
-# Create a new branch for the source repository
-# Merge the source repository's branch into the destination repository
-# Make necessary changes to structure (move to subfolder)
+Create a new branch for the source repository
+Merge the source repository's branch into the destination repository
+Make necessary changes to structure (move to subfolder)
 
 ```
 git checkout -b bci-challenges bcichallenges/master
@@ -20,8 +20,8 @@ git merge --allow-unrelated-histories bci-functions
 ###
 
 
-# Push the changes to the destination repository on GitHub
-# Merge individual branches into main branch (will have conflicts)
+Push the changes to the destination repository on GitHub
+Merge individual branches into main branch (will have conflicts)
 
 ```
 git push origin bci-challenges
