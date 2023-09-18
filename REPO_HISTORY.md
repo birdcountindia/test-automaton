@@ -1,5 +1,4 @@
-
-1. Add remotes to external repos to be merged.
+1. Add remotes to external repos to be merged (after making sure they are subfoldered to prevent conflicts).
 
 ```
 git remote add -f bcichallenges https://github.com/birdcountindia/BCI-challenges
@@ -18,6 +17,7 @@ git remote add -f pmp https://github.com/birdcountindia/BCI-patchmon
 git checkout -b bci-challenges bcichallenges/master
 git pull origin main --allow-unrelated-histories
 git remote remove bcichallenges
+git push origin bci-challenges
 git branch bci-challenges -u origin/bci-challenges
 # changes
 git push origin bci-challenges
@@ -25,6 +25,7 @@ git push origin bci-challenges
 git checkout -b bci-functions bcifunctions/main
 git pull origin main --allow-unrelated-histories
 git remote remove bcifunctions
+git push origin bci-functions
 git branch bci-functions -u origin/bci-functions
 # changes
 git push origin bci-functions
@@ -42,8 +43,11 @@ git push origin pmp
 
 ```
 git checkout main
-git merge --allow-unrelated-histories bci-challenges
-git merge --allow-unrelated-histories bci-functions
+git pull origin bci-challenges
+git pull origin bci-functions
+git pull origin pmp
+
+git push
 ```
 
 ### Resources
@@ -53,5 +57,4 @@ This workflow was formulated using several guides/resources including:
 - https://gfscott.com/blog/merge-git-repos-and-keep-commit-history/
 - https://stackdiary.com/tutorials/how-to-merge-two-git-repositories/
 
-<!-- -->
 <!-- -->
