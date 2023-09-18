@@ -18,3 +18,6 @@
 # challenges
 02_challenges/*.csv
 02_challenges/2022/consistent_troubleshoot_2022.R
+
+# PMP
+pmp-yearly-patterns/
