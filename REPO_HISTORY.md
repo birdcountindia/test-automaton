@@ -1,3 +1,4 @@
+
 1. Add remotes to external repos to be merged.
 
 ```
@@ -36,3 +37,12 @@ git merge --allow-unrelated-histories bci-challenges
 git merge --allow-unrelated-histories bci-functions
 ```
 
+### Resources
+
+This workflow was formulated using several guides/resources including:
+
+- https://gfscott.com/blog/merge-git-repos-and-keep-commit-history/
+- https://stackdiary.com/tutorials/how-to-merge-two-git-repositories/
+
+<!-- -->
+<!-- -->
