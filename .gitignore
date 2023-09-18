@@ -1,14 +1,23 @@
 .Rproj.user
 .Rhistory
-.RData
 .Ruserdata
 
+*.RData
 *.Rproj
 
-*.csv
-*.xlsx
-*.RData
-*.txt
 
-# folder with all yearly pattern figures
+# data files
+*.xlsx
+*.txt
+*.zip
+*.pdf
+*.docx
+*.csv
+
+
+# challenges
+02_challenges/*.csv
+02_challenges/2022/consistent_troubleshoot_2022.R
+
+# PMP
 pmp-yearly-patterns/
